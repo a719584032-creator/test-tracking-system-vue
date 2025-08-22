@@ -39,19 +39,8 @@
             {{ loading ? '登录中...' : '登录' }}
           </el-button>
         </el-form-item>
-        <div class="login-footer">
-          <el-button type="text" @click="goChangePassword" :disabled="loading">
-            修改密码
-          </el-button>
-        </div>
       </el-form>
     </el-card>
-
-    <!-- 修改密码对话框 -->
-    <ChangePasswordDialog 
-      v-model="showChangePassword"
-      @success="handlePasswordChanged"
-    />
   </div>
 </template>
 
@@ -62,16 +51,13 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/modules/auth'
 import { authApi } from '@/api/auth'
 import { appInfo } from '@/config'
-import ChangePasswordDialog from '@/components/Auth/ChangePasswordDialog.vue'
 
-// 使用配置中的应用标题
 const appTitle = appInfo.title
 
 const router = useRouter()
 const auth = useAuthStore()
 const loginForm = ref()
 const loading = ref(false)
-const showChangePassword = ref(false)
 
 const form = reactive({
   username: '',
@@ -86,56 +72,77 @@ const rules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于 8 个字符', trigger: 'blur' }
+    { min: 8, message: '密码长度不能少于 8 个字符', trigger: 'blur' }
   ]
 }
 
-// 处理登录
 const handleLogin = () => {
   if (loading.value) return
-  
+
   loginForm.value.validate(async (valid) => {
     if (!valid) return
-    
+
     loading.value = true
     try {
       const response = await authApi.login({
         username: form.username,
-        password: form.password
+          password: form.password
       })
-      
-      const { token, role, userid, username } = response.data
-      
-      if (token) {
-        // 保存用户信息到 store
-        auth.login({ 
-          token, 
-          username: username || form.username, 
-          role, 
-          userid 
-        })
-        
-        // 记住用户名
-        if (form.remember) {
-          localStorage.setItem('rememberUser', form.username)
+
+      console.log('开始登录')
+      console.log('完整响应:', response)
+
+      const apiResponse = response.data
+      console.log('响应码:', apiResponse.code)
+      console.log('响应数据:', apiResponse.data)
+      console.log('响应消息:', apiResponse.message)
+
+      if (apiResponse.code === 200 && apiResponse.data) {
+        const { token, user } = apiResponse.data
+        if (token && user) {
+          const { id: userid, username, role } = user
+          auth.login({
+            token,
+            username: username || form.username,
+            role,
+            userid
+          })
+
+          if (form.remember) {
+            localStorage.setItem('rememberUser', form.username)
+          } else {
+            localStorage.removeItem('rememberUser')
+          }
+
+          ElMessage.success('登录成功')
+          router.push('/dashboard')
         } else {
-          localStorage.removeItem('rememberUser')
+          console.error('Token 或用户信息缺失:', { token, user })
+          ElMessage.error('登录失败，服务器返回数据不完整')
         }
-        
-        ElMessage.success('登录成功')
-        router.push('/dashboard')
       } else {
-        ElMessage.error('登录失败，服务器返回异常')
+        console.error('登录失败，响应异常:', apiResponse)
+        ElMessage.error(apiResponse.message || '登录失败')
       }
     } catch (error) {
       console.error('登录错误:', error)
-      
-      if (error.response?.status === 401) {
+      if (error.response?.data) {
+        const errorData = error.response.data
+        if (errorData.code === 401) {
+          ElMessage.error(errorData.message || '用户名或密码错误')
+        } else if (errorData.code === 400) {
+          ElMessage.error(errorData.message || '请求参数错误')
+        } else {
+          ElMessage.error(errorData.message || '登录失败')
+        }
+      } else if (error.response?.status === 401) {
         ElMessage.error('用户名或密码错误')
       } else if (error.response?.status === 400) {
         ElMessage.error('请求参数错误')
-      } else if (error.response?.data?.error) {
-        ElMessage.error(error.response.data.error)
+      } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
+        ElMessage.error('网络连接失败，请检查网络设置')
+      } else if (error.code === 'ECONNABORTED') {
+        ElMessage.error('请求超时，请稍后重试')
       } else {
         ElMessage.error('登录失败，请检查网络连接或稍后重试')
       }
@@ -145,18 +152,6 @@ const handleLogin = () => {
   })
 }
 
-// 跳转到修改密码
-const goChangePassword = () => {
-  showChangePassword.value = true
-}
-
-// 密码修改成功回调
-const handlePasswordChanged = () => {
-  ElMessage.success('密码修改成功')
-  showChangePassword.value = false
-}
-
-// 页面加载时恢复记住的用户名
 onMounted(() => {
   const rememberedUser = localStorage.getItem('rememberUser')
   if (rememberedUser) {
@@ -194,10 +189,5 @@ onMounted(() => {
 
 .full-btn {
   width: 100%;
-}
-
-.login-footer {
-  display: flex;
-  justify-content: flex-end;
 }
 </style>

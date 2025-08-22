@@ -10,7 +10,7 @@ export const authApi = {
       timestamp: new Date().toISOString()
     })
     
-    return http.post('/login', {
+    return http.post('/api/auth/login', {
       username: data.username,
       password: data.password
     }).then(response => {
@@ -40,10 +40,43 @@ export const authApi = {
       timestamp: new Date().toISOString()
     })
     
-    return http.post('/change_user_password', {
-      username: data.username,
+    return http.post('/api/auth/change-password', {
       old_password: data.oldPassword,
-      new_password: data.newPassword
+      new_password: data.newPassword,
+      confirm_password: data.confirmPassword
+    }).then(response => {
+      console.log('✅ [AUTH] Change password success:', response.data)
+      return response
+    }).catch(error => {
+      console.error('❌ [AUTH] Change password failed:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      })
+      throw error
+    })
+  },
+
+  // 退出登录
+  logout() {
+    console.log('🚪 [AUTH] Logout attempt:', {
+      timestamp: new Date().toISOString()
+    })
+    
+    return http.post('/api/auth/logout').then(response => {
+      console.log('✅ [AUTH] Logout success:', response.data)
+      return response
+    }).catch(error => {
+      console.error('❌ [AUTH] Logout failed:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      })
+      throw error
     })
   }
 }

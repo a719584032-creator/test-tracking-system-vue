@@ -31,11 +31,10 @@ project-root/
 │   │   ├── models.js
 │   │   ├── sheets.js
 │   │   ├── cases.js
-│   │   ├── executions.js
 │   │   ├── statistics.js
 │   │   ├── exports.js
 │   │   ├── users.js
-│   │   └── uploads.js
+│   │   └── departments.js
 │   ├── layouts/                      // UI 布局层
 │   │   ├── AdminLayout.vue
 │   │   └── AuthLayout.vue
@@ -53,6 +52,7 @@ project-root/
 │   │   ├── Models/
 │   │   │   └── ModelManageDialog.vue
 │   │   ├── Users/
+│   │   │   ├── EditUserDialog.vue
 │   │   │   └── AddUserDialog.vue
 │   │   ├── ImagePreview/
 │   │   │   ├── ImagePreviewDialog.vue

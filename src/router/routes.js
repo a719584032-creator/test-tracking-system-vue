@@ -31,6 +31,25 @@ export const routes = [
           roles: ['admin'] // 路由守卫中校验
         },
       },
+      {
+        path: 'departments',
+        name: 'DepartmentManage',
+        component: () => import('../pages/Departments/DepartmentManagePage.vue'),
+        meta:{
+          title: '部门管理',
+          requiresAuth: true
+        //  roles: ['admin'] // 路由守卫中校验
+        },
+      },
+      {
+        path: '/departments/:id',
+        name: 'DepartmentDetail',
+        component: () => import('../pages/Departments/DepartmentDetail.vue'),
+        meta: {
+          title: '部门详情',
+          requiresAuth: true
+        }
+      }
     ],
   },
   {

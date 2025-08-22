@@ -1,8 +1,8 @@
-<!-- ================== src/components/Users/AddUserDialog.vue ================== -->
+<!-- ================== src/components/Users/EditUserDialog.vue ================== -->
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="添加用户"
+    title="编辑用户"
     width="500px"
     :close-on-click-modal="false"
     @close="handleClose"
@@ -14,22 +14,12 @@
       label-width="80px"
       @submit.prevent
     >
-      <el-form-item label="用户名" prop="username">
-        <el-input
-          v-model="formData.username"
-          placeholder="请输入用户名"
-          clearable
-        />
+      <el-form-item label="用户名">
+        <el-input v-model="userInfo.username" disabled />
       </el-form-item>
       
-      <el-form-item label="密码" prop="password">
-        <el-input
-          v-model="formData.password"
-          type="password"
-          placeholder="请输入密码"
-          show-password
-          clearable
-        />
+      <el-form-item label="创建时间">
+        <el-input :value="formatDateTime(userInfo.created_at)" disabled />
       </el-form-item>
       
       <el-form-item label="邮箱" prop="email">
@@ -84,6 +74,7 @@ import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { USER_ROLES } from '@/constants/user'
 import { userService } from '@/api/users'
+import { formatDateTime } from '@/utils/format'
 
 const emit = defineEmits(['success'])
 
@@ -91,23 +82,14 @@ const dialogVisible = ref(false)
 const loading = ref(false)
 const formRef = ref()
 
+const userInfo = ref({})
 const formData = reactive({
-  username: '',
-  password: '',
   email: '',
   phone: '',
-  role: 'user' // 默认为普通用户
+  role: ''
 })
 
 const rules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, max: 20, message: '密码长度在 8 到 20 个字符', trigger: 'blur' }
-  ],
   email: [
     {
       type: 'email',
@@ -138,7 +120,11 @@ watch(dialogVisible, (visible) => {
   }
 })
 
-const open = () => {
+const open = (user) => {
+  userInfo.value = { ...user }
+  formData.email = user.email || ''
+  formData.phone = user.phone || ''
+  formData.role = user.role || ''
   dialogVisible.value = true
 }
 
@@ -151,12 +137,11 @@ const resetForm = () => {
     formRef.value.resetFields()
   }
   Object.assign(formData, {
-    username: '',
-    password: '',
     email: '',
     phone: '',
-    role: 'user'
+    role: ''
   })
+  userInfo.value = {}
 }
 
 const handleSubmit = async () => {
@@ -167,24 +152,20 @@ const handleSubmit = async () => {
     loading.value = true
     
     const payload = {
-      username: formData.username,
-      password: formData.password,
       email: formData.email || null,
       phone: formData.phone || null,
       role: formData.role
     }
     
-    const result = await userService.create(payload)
+    const result = await userService.update(userInfo.value.id, payload)
     
-    if (result.code === 200) {
-      ElMessage.success(result.message || '用户创建成功')
+    if (result.success) {
+      ElMessage.success('用户信息更新成功')
       emit('success')
       handleClose()
-    } else {
-      ElMessage.error(result.message || '创建失败')
     }
   } catch (error) {
-    console.error('创建用户失败:', error)
+    console.error('更新用户失败:', error)
   } finally {
     loading.value = false
   }

@@ -1,3 +1,4 @@
+// ================== src/api/http.js ==================
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -18,17 +19,6 @@ const axiosConfig = {
   }
 }
 
-// // 仅在需要忽略 SSL 且为 HTTPS 时添加 httpsAgent
-// if (shouldIgnoreSSL && baseURL.startsWith('https://')) {
-//   // 动态导入 https 模块（避免浏览器环境报错）
-//   if (typeof window === 'undefined') {
-//     // Node.js 环境
-//     const https = require('https')
-//     axiosConfig.httpsAgent = new https.Agent({
-//       rejectUnauthorized: false // 相当于 Python 的 verify=False
-//     })
-//   }
-// }
 
 const http = axios.create(axiosConfig)
 
@@ -46,8 +36,6 @@ http.interceptors.request.use(
         url: config.url,
         method: config.method?.toUpperCase(),
         baseURL: config.baseURL,
-        // protocol: config.baseURL?.startsWith('https://') ? 'HTTPS' : 'HTTP',
-        // ignoreSSL: shouldIgnoreSSL && config.baseURL?.startsWith('https://'),
         data: config.data
       })
     }

@@ -1,48 +1,69 @@
+// ================== src/api/users.js ==================
 import http from './http'
+import { ElMessage } from 'element-plus'
 
+// 通用请求处理函数
+async function handleRequest(apiFunc, args = [], defaultErrorMsg = '操作失败') {
+  try {
+    const response = await apiFunc(...args)
+    const data = response.data
 
-// 是否使用本地 mock（后端未完成时为 true）
-const USE_MOCK = import.meta.env.VITE_USE_USERS_MOCK === 'true'
+    if (data.code !== undefined && data.code !== 200) {
+      ElMessage.error(data.message || defaultErrorMsg)
+      return { success: false, message: data.message || defaultErrorMsg, data: null, code: data.code }
+    }
 
-let mock
-if (USE_MOCK) {
-  // 动态导入（构建时 tree-shake）
-  import('../mocks/users.mock').then(m => { mock = m })
+    return { success: true, data: data.data, message: data.message || '', code: data.code || 200 }
+  } catch (error) {
+    const errorMsg = error.response?.data?.message || error.message || defaultErrorMsg
+    ElMessage.error(errorMsg)
+    return { success: false, message: errorMsg, data: null }
+  }
 }
 
-export function listUsers(params) {
-  if (USE_MOCK) return mock.listUsers(params)
-  return http.get('/users', { params })
+// 基础接口
+export function createUser(data) {
+  return http.post('/api/users/create', data)
 }
 
-export function createUser(payload) {
-  const { username, password, role } = payload
-  const data = { username, password, role }
-  return http.post('/add_user', data)
+export function getUserList(params = {}) {
+  return http.get('/api/users/list', { params })
 }
 
-export function updateUser(id, payload) {
-  if (USE_MOCK) return mock.updateUser(id, payload)
-  return http.put(`/users/${id}`, payload)
+export function changeUserStatus(userId, active) {
+  return http.patch(`/api/users/${userId}/status`, { active })
 }
 
-export function toggleUserStatus(id, enabled) {
-  if (USE_MOCK) return mock.toggleUserStatus(id, enabled)
-  return http.patch(`/users/${id}/status`, { enabled })
+export function updateUserProfile(userId, payload) {
+  return http.patch(`/api/users/${userId}/profile`, payload)
 }
 
-export function deleteUser(id) {
-  if (USE_MOCK) return mock.deleteUser(id)
-  return http.delete(`/users/${id}`)
+export function updateSelfProfile(payload) {
+  return http.patch('/api/users/me/profile', payload)
 }
 
-export function resetPassword(id) {
-  if (USE_MOCK) return mock.resetPassword(id)
-  return http.post(`/users/${id}/reset-password`)
+export function resetUserPassword(userId) {
+  return http.post(`/api/users/${userId}/password/reset`)
 }
 
-// 查询单个（可选）
-export function getUser(id) {
-  if (USE_MOCK) return mock.getUser(id)
-  return http.get(`/users/${id}`)
+// service 层
+export const userService = {
+  create: (payload) => handleRequest(createUser, [payload], '创建用户失败'),
+  getList: (params) => handleRequest(getUserList, [params], '获取用户列表失败'),
+  toggleStatus: (id, active) => handleRequest(changeUserStatus, [id, active], '状态切换失败'),
+  update: (id, payload) => handleRequest(updateUserProfile, [id, payload], '更新用户失败'),
+  updateSelf: (payload) => handleRequest(updateSelfProfile, [payload], '更新个人信息失败'),
+  resetPassword: async (id) => {
+    const result = await handleRequest(resetUserPassword, [id], '重置密码失败')
+    if (result.success && result.data) {
+      // 兼容不同字段格式
+      const newPassword = result.data.new_password || result.data.newPassword
+      if (newPassword) {
+        result.data.newPassword = newPassword
+      }
+    }
+    return result
+  }
 }
+
+export default userService

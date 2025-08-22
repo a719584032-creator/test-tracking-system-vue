@@ -31,6 +31,10 @@
           <el-icon><User /></el-icon>
           <span>用户管理</span>
         </el-menu-item>
+        <el-menu-item index="/departments" class="menu-item">
+          <el-icon><User /></el-icon>
+          <span>部门管理</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -65,6 +69,10 @@
                   <el-icon><User /></el-icon>
                   个人资料
                 </el-dropdown-item>
+                <el-dropdown-item command="changePassword">
+                  <el-icon><Lock /></el-icon>
+                  修改密码
+                </el-dropdown-item>
                 <el-dropdown-item command="settings">
                   <el-icon><Setting /></el-icon>
                   设置
@@ -84,13 +92,22 @@
         <router-view />
       </el-main>
     </el-container>
+
+    <!-- 修改密码对话框 -->
+    <ChangePasswordDialog 
+      v-model:visible="changePasswordVisible"
+      @success="handlePasswordChangeSuccess"
+    />
   </el-container>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/modules/auth'
+import { authApi } from '@/api/auth'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import ChangePasswordDialog from '@/components/Auth/ChangePasswordDialog.vue'
 import { 
   House, 
   Document, 
@@ -99,12 +116,16 @@ import {
   Bell, 
   ArrowDown, 
   Setting, 
-  SwitchButton 
+  SwitchButton,
+  Lock // 新增锁定图标
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+
+// 修改密码对话框显示状态
+const changePasswordVisible = ref(false)
 
 const activeMenu = computed(() => route.path)
 
@@ -113,7 +134,8 @@ const getBreadcrumbTitle = () => {
   const routeMap = {
     '/dashboard': '首页',
     '/plans/board': '用例看板',
-    '/users': '用户管理'
+    '/users': '用户管理',
+    '/departments': '部门管理'
   }
   return routeMap[route.path] || '首页'
 }
@@ -124,29 +146,83 @@ const handleCommand = (command) => {
     case 'profile':
       // 跳转到个人资料页面
       break
+    case 'changePassword':
+      changePasswordVisible.value = true
+      break
     case 'settings':
       // 跳转到设置页面
       break
     case 'logout':
-      logout()
+      handleLogout()
       break
   }
 }
 
-const logout = () => {
-  auth.logout()
-  router.push('/login')
+// 密码修改成功处理
+const handlePasswordChangeSuccess = () => {
+  ElMessage.success('密码修改成功，请重新登录')
+  // 可选：强制用户重新登录
+  setTimeout(() => {
+    logout()
+  }, 1500)
+}
+
+// 退出登录处理
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要退出登录吗？',
+      '退出确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+        center: true
+      }
+    )
+    
+    await logout()
+  } catch (error) {
+    if (error === 'cancel') {
+      return
+    }
+    console.error('退出登录确认失败:', error)
+  }
+}
+
+// 退出登录逻辑
+const logout = async () => {
+  try {
+    const loadingMessage = ElMessage({
+      message: '正在退出登录...',
+      type: 'info',
+      duration: 0,
+      showClose: false
+    })
+
+    await authApi.logout()
+    loadingMessage.close()
+    auth.logout()
+    ElMessage.success('退出登录成功')
+    router.push('/login')
+    
+  } catch (error) {
+    console.error('退出登录失败:', error)
+    auth.logout()
+    ElMessage.warning('退出登录完成')
+    router.push('/login')
+  }
 }
 </script>
 
+<!-- 样式保持不变 -->
 <style scoped>
-/* 侧边栏样式 */
+/* 原有样式保持不变 */
 .sidebar {
   background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Logo区域 */
 .logo-container {
   height: 64px;
   display: flex;
@@ -170,7 +246,6 @@ const logout = () => {
   letter-spacing: 0.5px;
 }
 
-/* 菜单样式 */
 .sidebar-menu {
   border-right: none;
   padding: 0 12px;
@@ -198,7 +273,6 @@ const logout = () => {
   font-size: 16px;
 }
 
-/* 顶部导航栏 */
 .header {
   background: #ffffff;
   border-bottom: 1px solid #e4e7ed;
@@ -227,7 +301,6 @@ const logout = () => {
   gap: 20px;
 }
 
-/* 通知图标 */
 .notification-badge {
   cursor: pointer;
 }
@@ -241,7 +314,6 @@ const logout = () => {
   color: #409eff;
 }
 
-/* 用户下拉菜单 */
 .user-dropdown {
   cursor: pointer;
 }
@@ -285,20 +357,17 @@ const logout = () => {
   transform: rotate(180deg);
 }
 
-/* 主内容区域 */
 .main-content {
   background: #f0f2f5;
   padding: 24px;
   overflow-y: auto;
 }
 
-/* 下拉菜单项图标 */
 .el-dropdown-menu__item .el-icon {
   margin-right: 8px;
   color: #909399;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .sidebar {
     width: 200px !important;
