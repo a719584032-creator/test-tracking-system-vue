@@ -1,218 +1,192 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="`成员管理 - ${currentDepartment?.name || ''}`"
-    width="900px"
+    :title="`添加成员 - ${currentDepartment?.name || ''}`"
+    width="1000px"
     :close-on-click-modal="false"
     @close="handleClose"
   >
-    <!-- 添加成员区域 -->
-    <div class="add-member-section">
-      <el-form :model="addMemberForm" inline @submit.prevent>
-        <el-form-item label="选择用户">
-          <el-select
-            v-model="addMemberForm.user_id"
-            placeholder="输入关键字搜索用户"
-            filterable
-            remote
-            reserve-keyword
-            :remote-method="handleRemoteQuery"
-            :loading="userSearchLoading"
-            style="width: 260px"
-            :disabled="candidateDisabled"
-            @visible-change="onUserSelectVisible"
+    <!-- 筛选区 -->
+    <div class="filter-bar">
+      <el-form :model="filters" inline @submit.prevent>
+        <el-form-item label="用户名">
+          <el-input
+            v-model="filters.username"
+            placeholder="请输入用户名"
             clearable
-          >
+            @keyup.enter="handleSearch"
+            style="width:180px"
+          />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input
+            v-model="filters.email"
+            placeholder="请输入邮箱"
+            clearable
+            @keyup.enter="handleSearch"
+            style="width:200px"
+          />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input
+            v-model="filters.phone"
+            placeholder="请输入手机号"
+            clearable
+            @keyup.enter="handleSearch"
+            style="width:180px"
+          />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="selectedRole" placeholder="选择角色" style="width:160px">
             <el-option
-              v-for="user in userOptions"
-              :key="user.id"
-              :label="formatUserOption(user)"
-              :value="user.id"
+              v-for="r in DEPARTMENT_ROLES"
+              :key="r.value"
+              :label="r.label"
+              :value="r.value"
             />
-            <template #empty>
-              <div class="empty-tip">
-                <span v-if="userSearchLoading">加载中...</span>
-                <span v-else>无可添加的用户</span>
-              </div>
-            </template>
           </el-select>
         </el-form-item>
-
-          <el-form-item label="角色">
-            <el-select
-              v-model="addMemberForm.role"
-              placeholder="请选择角色"
-              style="width: 150px"
-            >
-              <el-option
-                v-for="role in DEPARTMENT_ROLES"
-                :key="role.value"
-                :label="role.label"
-                :value="role.value"
-              />
-            </el-select>
-          </el-form-item>
-
         <el-form-item>
-          <el-checkbox v-model="addMemberForm.upsert">存在则更新</el-checkbox>
+          <el-button type="primary" :loading="loadingCandidates" @click="handleSearch">搜索</el-button>
         </el-form-item>
-
+        <el-form-item>
+          <el-button :disabled="loadingCandidates" @click="resetFilters">重置</el-button>
+        </el-form-item>
         <el-form-item>
           <el-button
-            type="primary"
-            :loading="addingMember"
-            :disabled="!addMemberForm.user_id"
-            @click="handleAddMember"
+            type="success"
+            :disabled="selectedUsers.length === 0 || addingBatch"
+            :loading="addingBatch"
+            @click="handleBatchAdd"
           >
-            添加成员
+            添加已选 ({{ selectedUsers.length }})
           </el-button>
         </el-form-item>
-
         <el-form-item>
-          <el-button :disabled="userSearchLoading" @click="reloadCandidates">
-            刷新候选
-          </el-button>
+          <el-button :disabled="loadingCandidates" @click="refreshCandidates">刷新候选</el-button>
         </el-form-item>
       </el-form>
       <div class="helper-text">
-        提示：下拉列表只显示尚未加入本部门的用户。输入关键字可筛选（用户名 / 邮箱 / 手机）。
+        显示的为尚未加入该部门的用户。可通过用户名 / 邮箱 / 手机号筛选。勾选后批量添加。
+        <span v-if="approxTotal !== null" class="approx-total">约可添加总数：{{ approxTotal }}</span>
       </div>
     </div>
 
-    <!-- 成员列表 -->
-    <div class="member-list-section">
-      <el-table
-        v-loading="loading"
-        :data="memberList"
-        stripe
-        style="width: 100%"
-        max-height="420px"
-      >
-        <el-table-column prop="user_id" label="用户ID" width="90" />
-        <el-table-column prop="username" label="用户名" min-width="140" />
-        <el-table-column prop="email" label="邮箱" min-width="180">
-          <template #default="{ row }">
-            {{ row.email || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="role" label="部门角色" min-width="150">
-          <template #default="{ row }">
-            <el-select
-              v-model="row._newRole"
-              size="small"
-              :loading="row.roleLoading"
-              style="width: 130px"
-              @change="handleRoleChange(row)"
-            >
-              <el-option
-                v-for="role in DEPARTMENT_ROLES"
-                :key="role.value"
-                :label="role.label"
-                :value="role.value"
-              />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column prop="joined_at" label="加入时间" min-width="170">
-          <template #default="{ row }">
-            {{ formatDateTime(row.joined_at || row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="110" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              type="danger"
-              size="small"
-              :loading="row.removing"
-              @click="handleRemoveMember(row)"
-            >
-              移除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+    <!-- 候选用户表 -->
+    <el-table
+      v-loading="loadingCandidates"
+      :data="candidateList"
+      stripe
+      style="width: 100%"
+      max-height="520px"
+      @selection-change="onSelectionChange"
+    >
+      <el-table-column type="selection" width="48" />
+      <el-table-column prop="id" label="ID" width="90" sortable />
+      <el-table-column prop="username" label="用户名" min-width="140" />
+      <el-table-column prop="email" label="邮箱" min-width="200">
+        <template #default="{ row }">
+          {{ row.email || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="phone" label="手机号" min-width="140">
+        <template #default="{ row }">
+          {{ row.phone || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="created_at" label="创建时间" min-width="170">
+        <template #default="{ row }">
+          {{ formatDateTime(row.created_at) }}
+        </template>
+      </el-table-column>
+    </el-table>
 
-      <!-- 分页 -->
-      <div class="pagination-wrapper" v-if="memberPagination.total > 0">
-        <el-pagination
-          v-model:current-page="memberPagination.page"
-          v-model:page-size="memberPagination.pageSize"
-          :total="memberPagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleMemberPageSizeChange"
-          @current-change="handleMemberPageChange"
-        />
-      </div>
+    <!-- 分页 -->
+    <div class="pagination-wrapper" v-if="candidatePagination.total > 0">
+      <el-pagination
+        v-model:current-page="candidatePagination.page"
+        v-model:page-size="candidatePagination.pageSize"
+        :total="candidatePagination.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleCandidatePageSizeChange"
+        @current-change="handleCandidatePageChange"
+      />
     </div>
 
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="handleClose">关闭</el-button>
+        <el-button :disabled="addingBatch" @click="handleClose">关闭</el-button>
+        <el-button
+          type="success"
+          :disabled="selectedUsers.length === 0 || addingBatch"
+          :loading="addingBatch"
+          @click="handleBatchAdd"
+        >
+          添加已选 ({{ selectedUsers.length }})
+        </el-button>
       </span>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 import { departmentService } from '@/api/departments'
 import { userService } from '@/api/users'
 import { formatDateTime } from '@/utils/format'
 
-/**
- * 若项目已有 constants/department.js 中的 DEPARTMENT_ROLES，请改为 import：
- * import { DEPARTMENT_ROLES } from '@/constants/department'
- * 并删除下面的常量定义。
- */
+// 角色常量（按需调整或移除）
 const DEPARTMENT_ROLES = [
-  // 请替换为后端真实角色值；演示使用 member / admin
   { label: '普通成员', value: 'member' },
   { label: '部门管理员', value: 'admin' }
 ]
 
-// 可添加成员候选禁用逻辑标记
-const candidateDisabled = ref(false)
-
-// 弹窗与当前部门
+// 对话框状态
 const visible = ref(false)
 const currentDepartment = ref(null)
 
-// 成员列表
-const loading = ref(false)
-const memberList = ref([])
-const memberPagination = reactive({
+// 部门成员 ID 集合
+const departmentMemberIds = ref(new Set()) // Set<userId>
+
+// 候选用户列表与分页
+const candidateList = ref([])
+const candidatePagination = reactive({
   page: 1,
   pageSize: 20,
-  total: 0
+  total: 0 // 这里 total 表示“当前过滤结果中未加入成员的估算总数”
 })
 
-// 缓存部门成员 user_id 集合用于过滤
-const departmentMemberUserIds = ref(new Set())
+// 估算总数（approximate）
+const approxTotal = ref(null)
 
-// 添加成员表单
-const addMemberForm = reactive({
-  user_id: '',
-  role: DEPARTMENT_ROLES[0]?.value || '',
-  upsert: true
+// 筛选表单
+const filters = reactive({
+  username: '',
+  email: '',
+  phone: ''
 })
-const addingMember = ref(false)
 
-// 候选用户（远程搜索）
-const userOptions = ref([])
-const userSearchLoading = ref(false)
-let searchDebounceTimer = null
-let currentSearchRequestId = 0
-let lastQuery = ''  // 保存最近一次查询
+// 角色（批量添加使用同一角色）
+const selectedRole = ref(DEPARTMENT_ROLES[0]?.value || '')
 
-// 打开弹窗
+// 加载状态
+const loadingMembers = ref(false)        // 获取已加入成员
+const loadingCandidates = ref(false)     // 拉取候选（用户）
+const addingBatch = ref(false)           // 批量添加中
+
+// 已勾选用户
+const selectedUsers = ref([])
+
+// 打开
 const open = async (department) => {
   currentDepartment.value = department
   visible.value = true
-  candidateDisabled.value = false
-  await fetchMemberList()              // 先拿当前成员
-  await loadCandidateUsers('')         // 初次加载空查询候选
+  resetPagination()
+  selectedUsers.value = []
+  await loadDepartmentMembers()
+  await fetchCandidateUsers()
 }
 
 const handleClose = () => {
@@ -222,260 +196,230 @@ const handleClose = () => {
 function resetState() {
   visible.value = false
   currentDepartment.value = null
-  memberList.value = []
-  userOptions.value = []
-  departmentMemberUserIds.value = new Set()
-  Object.assign(addMemberForm, {
-    user_id: '',
-    role: DEPARTMENT_ROLES[0]?.value || '',
-    upsert: true
-  })
-  Object.assign(memberPagination, { page: 1, pageSize: 20, total: 0 })
-  lastQuery = ''
+  departmentMemberIds.value = new Set()
+  candidateList.value = []
+  resetFilters()
+  resetPagination()
+  selectedUsers.value = []
+  approxTotal.value = null
+}
+
+function resetPagination() {
+  candidatePagination.page = 1
+  candidatePagination.pageSize = 20
+  candidatePagination.total = 0
+}
+
+function resetFilters() {
+  filters.username = ''
+  filters.email = ''
+  filters.phone = ''
 }
 
 /**
- * 获取成员列表
+ * 获取部门已加入成员（仅需 ID）
  */
-async function fetchMemberList() {
+async function loadDepartmentMembers() {
   if (!currentDepartment.value) return
+  loadingMembers.value = true
   try {
-    loading.value = true
-    const params = {
-      page: memberPagination.page,
-      page_size: memberPagination.pageSize,
-      order_by: 'joined_at desc'
-    }
+    // 根据后端分页策略，这里循环取所有成员或假设 page_size 足够大
+    // 简单实现：一次取 1 页（如果成员可能很多，可追加循环）
+    const params = { page: 1, page_size: 1000 }
     const resp = await departmentService.listMembers(currentDepartment.value.id, params)
-    if (!resp.success) {
-      ElMessage.error(resp.message || '获取成员列表失败')
-      return
+    if (resp?.success) {
+      const items = resp.data?.items || []
+      departmentMemberIds.value = new Set(items.map(i => i.id ?? i.user_id))
+    } else {
+      departmentMemberIds.value = new Set()
     }
-    const items = resp.data?.items || []
-    memberList.value = items.map(m => ({
-      // 假设接口返回：
-      // id: membership id
-      // user_id, username, email, role, joined_at
-      ...m,
-      _newRole: m.role,
-      roleLoading: false,
-      removing: false
-    }))
-    memberPagination.total = resp.data?.total || 0
-    // 构建 user_id 集合
-    departmentMemberUserIds.value = new Set(memberList.value.map(m => m.user_id))
   } catch (err) {
-    console.error('获取成员列表失败:', err)
-    ElMessage.error('获取成员列表失败')
+    console.error('加载部门成员失败', err)
+    departmentMemberIds.value = new Set()
   } finally {
-    loading.value = false
+    loadingMembers.value = false
   }
 }
 
 /**
- * 构建用户搜索参数（根据后端实际字段修改）
+ * 构建用户列表查询参数
  */
-function buildUserQueryParams(query) {
-  // 下面示例：后端用户列表可用 username / email / phone / keyword 其中之一
-  // 优先使用 keyword（若后端支持）
+function buildUserListParams() {
   const p = {
-    page: 1,
-    page_size: 50
+    page: candidatePagination.page,
+    page_size: candidatePagination.pageSize
   }
-  // 如果后端是用 keyword：
-  if (query) {
-    p.keyword = query
-  }
-  // 如果后端只能用 username，可改为：
-  // if (query) p.username = query
+  if (filters.username) p.username = filters.username
+  if (filters.email) p.email = filters.email
+  if (filters.phone) p.phone = filters.phone
   return p
 }
 
 /**
- * 真正执行用户候选加载（不做防抖）
+ * 拉取候选用户（过滤掉已在部门的）
+ * 包含“如果当前页数据全被过滤则尝试翻页”逻辑
  */
-async function loadCandidateUsers(query) {
+async function fetchCandidateUsers(tryDepth = 0) {
   if (!currentDepartment.value) return
-  const requestId = ++currentSearchRequestId
-  userSearchLoading.value = true
+  loadingCandidates.value = true
   try {
-    // 获取用户列表
-    const userParams = buildUserQueryParams(query)
-    const [usersResp] = await Promise.all([
-      userService.getList(userParams)
-    ])
-    if (requestId !== currentSearchRequestId) {
-      // 过期响应
+    const params = buildUserListParams()
+    const resp = await userService.getList(params)
+    if (!resp?.success) {
+      candidateList.value = []
+      candidatePagination.total = 0
+      approxTotal.value = 0
       return
     }
-    if (!usersResp.success) {
-      userOptions.value = []
-      return
-    }
-    const rawUsers = usersResp.data?.items || []
+    const raw = resp.data?.items || []
     // 过滤掉已在部门的
-    const filtered = rawUsers.filter(u => !departmentMemberUserIds.value.has(u.id))
-    userOptions.value = filtered
+    const filtered = raw.filter(u => !departmentMemberIds.value.has(u.id ?? u.user_id))
+    // 如果这一页全被过滤掉，并且还有可能存在更多可用数据，尝试下一页
+    if (filtered.length === 0 && raw.length > 0 && tryDepth < 5) {
+      candidatePagination.page += 1
+      await fetchCandidateUsers(tryDepth + 1)
+      return
+    }
+    candidateList.value = filtered.map(normUser)
+
+    // 估算总数（不精确）：后端总用户数 - 已在成员数（未考虑筛选条件差异）
+    const totalUsers = resp.data?.total ?? 0
+    approxTotal.value = totalUsers - departmentMemberIds.value.size
+    if (approxTotal.value < 0) approxTotal.value = 0
+
+    // 分页 total：用 approxTotal（更贴合“可用”）
+    candidatePagination.total = approxTotal.value
+
+    // 如果当前页数据为空且 page>1（可能超过最后一页），回退一页再试
+    if (candidateList.value.length === 0 && candidatePagination.page > 1 && tryDepth < 5) {
+      candidatePagination.page -= 1
+      await fetchCandidateUsers(tryDepth + 1)
+    }
+    // 自动清理已在成员中但仍留在勾选的用户（比如刚被添加后刷新）
+    pruneSelections()
   } catch (err) {
-    if (requestId === currentSearchRequestId) {
-      console.error('加载候选用户失败:', err)
-      userOptions.value = []
+    console.error('获取候选用户失败', err)
+    if (tryDepth === 0) {
+      ElMessage.error('获取候选用户失败')
     }
+    candidateList.value = []
   } finally {
-    if (requestId === currentSearchRequestId) {
-      userSearchLoading.value = false
-    }
+    loadingCandidates.value = false
+  }
+}
+
+function normUser(u) {
+  return {
+    id: u.id ?? u.user_id,
+    username: u.username,
+    email: u.email,
+    phone: u.phone,
+    created_at: u.created_at
   }
 }
 
 /**
- * 远程搜索入口（带防抖）
+ * 执行搜索（回到第一页）
  */
-function handleRemoteQuery(query) {
-  lastQuery = query
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer)
-  }
-  searchDebounceTimer = setTimeout(() => {
-    // 允许空查询（加载第一页）
-    loadCandidateUsers(query.trim())
-  }, 300)
+function handleSearch() {
+  candidatePagination.page = 1
+  fetchCandidateUsers()
+}
+
+function refreshCandidates() {
+  fetchCandidateUsers()
 }
 
 /**
- * 下拉展开时若为空并且还没加载过，则加载一次默认候选
+ * 勾选变化
  */
-function onUserSelectVisible(shown) {
-  if (shown && userOptions.value.length === 0 && !userSearchLoading.value) {
-    handleRemoteQuery(lastQuery || '')
-  }
-}
-
-function reloadCandidates() {
-  handleRemoteQuery(lastQuery || '')
-}
-
-function formatUserOption(u) {
-  return `${u.username || ''}${u.email ? ' (' + u.email + ')' : ''}`
+function onSelectionChange(rows) {
+  selectedUsers.value = rows
 }
 
 /**
- * 添加成员
+ * 移除失效勾选（已经变成部门成员或不在当前候选列表）
  */
-async function handleAddMember() {
-  if (!addMemberForm.user_id) {
-    ElMessage.warning('请选择用户')
-    return
-  }
+function pruneSelections() {
+  const currentIds = new Set(candidateList.value.map(i => i.id))
+  selectedUsers.value = selectedUsers.value.filter(r => currentIds.has(r.id))
+}
+
+/**
+ * 分页事件
+ */
+function handleCandidatePageChange(p) {
+  candidatePagination.page = p
+  fetchCandidateUsers()
+}
+function handleCandidatePageSizeChange(s) {
+  candidatePagination.pageSize = s
+  candidatePagination.page = 1
+  fetchCandidateUsers()
+}
+
+/**
+ * 批量添加
+ * 若无批量接口：逐条调用
+ */
+async function handleBatchAdd() {
+  if (selectedUsers.value.length === 0) return
   if (!currentDepartment.value) {
     ElMessage.error('部门信息缺失')
     return
   }
+  addingBatch.value = true
   try {
-    addingMember.value = true
-    const payload = {
-      user_id: addMemberForm.user_id,
-      role: addMemberForm.role,
-      upsert: addMemberForm.upsert
+    const users = [...selectedUsers.value]
+    const results = await sequentialAddMembers(users, selectedRole.value)
+    const successCount = results.filter(r => r.success).length
+    const failCount = results.length - successCount
+    if (successCount > 0) {
+      ElMessage.success(`添加成功 ${successCount} 人${failCount ? '，失败 ' + failCount + ' 人' : ''}`)
+    } else {
+      ElMessage.error('成员添加全部失败')
     }
-    const resp = await departmentService.addMember(currentDepartment.value.id, payload)
-    if (!resp.success) {
-      ElMessage.error(resp.message || '添加成员失败')
-      return
-    }
-    ElMessage.success('成员添加成功')
-    // 重置选择
-    addMemberForm.user_id = ''
-    // 刷新成员列表 与 候选
-    await fetchMemberList()
-    reloadCandidates()
+    // 刷新成员集合与候选
+    await loadDepartmentMembers()
+    // 清空勾选
+    selectedUsers.value = []
+    await fetchCandidateUsers()
   } catch (err) {
-    console.error('添加成员失败:', err)
-    ElMessage.error('添加成员失败')
+    console.error('批量添加失败', err)
+    ElMessage.error('批量添加失败')
   } finally {
-    addingMember.value = false
+    addingBatch.value = false
   }
 }
 
 /**
- * 修改成员角色
+ * 顺序添加（可改为 Promise.allSettled，顺序便于失败时控制节奏）
  */
-async function handleRoleChange(member) {
-  if (member._newRole === member.role) return
-  const old = member.role
-  member.roleLoading = true
-  try {
-    const resp = await departmentService.updateMemberRole(member.id, { role: member._newRole })
-    if (!resp.success) {
-      ElMessage.error(resp.message || '修改角色失败')
-      member._newRole = old
-      return
-    }
-    member.role = member._newRole
-    ElMessage.success('角色修改成功')
-  } catch (err) {
-    console.error('修改角色失败:', err)
-    ElMessage.error('修改角色失败')
-    member._newRole = old
-  } finally {
-    member.roleLoading = false
-  }
-}
-
-/**
- * 移除成员
- */
-async function handleRemoveMember(member) {
-  try {
-    await ElMessageBox.confirm(
-      `确定要将用户 "${member.username}" 从部门中移除吗？`,
-      '确认移除',
-      {
-        confirmButtonText: '确定',
-          cancelButtonText: '取消',
-        type: 'warning'
+async function sequentialAddMembers(users, role) {
+  const results = []
+  for (const u of users) {
+    try {
+      const payload = {
+        user_id: u.id,
+        role,
+        upsert: true
       }
-    )
-    member.removing = true
-    const resp = await departmentService.removeMember(member.id)
-    if (!resp.success) {
-      ElMessage.error(resp.message || '移除成员失败')
-      return
+      const resp = await departmentService.addMember(currentDepartment.value.id, payload)
+      results.push({ id: u.id, success: !!resp?.success, message: resp?.message })
+    } catch (e) {
+      results.push({ id: u.id, success: false, message: e?.message })
     }
-    ElMessage.success('成员移除成功')
-    await fetchMemberList()
-    reloadCandidates()
-  } catch (err) {
-    if (err !== 'cancel') {
-      console.error('移除成员失败:', err)
-      ElMessage.error('移除成员失败')
-    }
-  } finally {
-    member.removing = false
   }
-}
-
-/**
- * 成员分页
- */
-function handleMemberPageChange(p) {
-  memberPagination.page = p
-  fetchMemberList().then(() => reloadCandidates())
-}
-
-function handleMemberPageSizeChange(s) {
-  memberPagination.pageSize = s
-  memberPagination.page = 1
-  fetchMemberList().then(() => reloadCandidates())
+  return results
 }
 
 defineExpose({ open })
 </script>
 
 <style scoped>
-.add-member-section {
-  margin-bottom: 20px;
-  padding: 16px;
+.filter-bar {
+  margin-bottom: 16px;
+  padding: 14px 16px 8px;
   background: #f5f7fa;
   border-radius: 6px;
 }
@@ -483,9 +427,14 @@ defineExpose({ open })
   font-size: 12px;
   color: #666;
   margin-top: 4px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
 }
-.member-list-section {
-  margin-top: 8px;
+.approx-total {
+  color: #333;
+  font-weight: 500;
 }
 .pagination-wrapper {
   margin-top: 16px;
@@ -496,12 +445,6 @@ defineExpose({ open })
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-.empty-tip {
-  padding: 12px 0;
-  color: #999;
-  font-size: 13px;
-  text-align: center;
 }
 :deep(.el-form--inline .el-form-item) {
   margin-right: 16px;

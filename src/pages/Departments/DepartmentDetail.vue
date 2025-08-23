@@ -114,12 +114,6 @@
 
         <el-table-column prop="username" label="用户名" min-width="120" />
 
-        <el-table-column prop="real_name" label="真实姓名" min-width="120">
-          <template #default="{ row }">
-            {{ row.real_name || '-' }}
-          </template>
-        </el-table-column>
-
         <el-table-column prop="email" label="邮箱" min-width="180">
           <template #default="{ row }">
             {{ row.email || '-' }}
@@ -148,9 +142,9 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="joined_at" label="加入时间" min-width="160">
+        <el-table-column prop="created_at" label="创建时间" min-width="160">
           <template #default="{ row }">
-            {{ formatDateTime(row.joined_at) }}
+            {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
 
