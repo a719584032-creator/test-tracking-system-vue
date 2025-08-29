@@ -76,8 +76,8 @@ function updateDepartmentMemberRole(memberId, payload) {
  * 移除成员 DELETE /api/departments/:member_id
  * 同上，memberId 为成员记录的 ID。
  */
-function removeDepartmentMember(memberId) {
-  return http.delete(`/api/departments/${memberId}`)
+function removeDepartmentMember(deptId, memberId) {
+  return http.delete(`/api/departments/${deptId}/members/${memberId}`)
 }
 
 // ========== Service 封装（带统一成功 / 失败结构） ==========
@@ -168,8 +168,8 @@ export const departmentService = {
    * 移除成员
    * @param {number} memberId
    */
-  removeMember: (memberId) =>
-    handleRequest(removeDepartmentMember, [memberId], '移除成员失败')
+  removeMember: (deptId, memberId) =>
+    handleRequest(removeDepartmentMember, [deptId, memberId], '移除成员失败')
 }
 
 export default departmentService

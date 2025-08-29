@@ -128,8 +128,8 @@
 
         <el-table-column prop="role" label="部门角色" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="getRoleTagType(row.dept_role)">
-              {{ getRoleLabel(row.dept_role) }}
+            <el-tag :type="getRoleTagType(row.role)">
+              {{ row.role_label || '-' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -200,6 +200,7 @@ import ManageMembersDialog from '@/components/Departments/ManageMembersDialog.vu
 import EditUserDialog from '@/components/Users/EditUserDialog.vue'
 import { departmentService } from '@/api/departments'
 import { formatDateTime } from '@/utils/format'
+import { MEMBER_STATUS_OPTIONS } from '@/constants/department'
 
 const route = useRoute()
 const router = useRouter()
@@ -211,11 +212,6 @@ const editUserDialogRef = ref()
 
 const departmentId = computed(() => parseInt(route.params.id))
 
-// 成员状态选项
-const MEMBER_STATUS_OPTIONS = [
-  { label: '正常', value: true },
-  { label: '禁用', value: false }
-]
 
 // 筛选条件
 const filters = reactive({
@@ -246,19 +242,13 @@ const getStatusLabel = (active) => {
 const getRoleTagType = (role) => {
   const roleTypes = {
     'admin': 'warning',
+    'dept_admin': 'warning',
+    'project_admin': 'warning',
     'member': 'info'
   }
   return roleTypes[role] || 'info'
 }
 
-// 角色中文显示
-const getRoleLabel = (role) => {
-  const roleLabels = {
-    'admin': '部门管理员',
-    'member': '普通成员'
-  }
-  return roleLabels[role] || '普通成员'
-}
 
 // 获取部门信息
 const fetchDepartmentInfo = async () => {

@@ -136,12 +136,10 @@ import { ElMessage } from 'element-plus'
 import { departmentService } from '@/api/departments'
 import { userService } from '@/api/users'
 import { formatDateTime } from '@/utils/format'
+import { DEPARTMENT_ROLES } from '@/constants/department'
 
-// 角色常量（按需调整或移除）
-const DEPARTMENT_ROLES = [
-  { label: '普通成员', value: 'member' },
-  { label: '部门管理员', value: 'admin' }
-]
+// 刷新通知
+const emit = defineEmits(['success'])
 
 // 对话框状态
 const visible = ref(false)
@@ -376,6 +374,7 @@ async function handleBatchAdd() {
     const failCount = results.length - successCount
     if (successCount > 0) {
       ElMessage.success(`添加成功 ${successCount} 人${failCount ? '，失败 ' + failCount + ' 人' : ''}`)
+      emit('success')
     } else {
       ElMessage.error('成员添加全部失败')
     }

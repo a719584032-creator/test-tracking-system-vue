@@ -92,11 +92,11 @@
         <el-table-column label="成员数量" width="100" align="center">
           <template #default="{ row }">
             <el-link
-              v-if="row.members > 0"
+              v-if="row.counts.members > 0"
               type="primary"
               @click="handleViewDetails(row)"
             >
-              {{ row.members }}
+              {{ row.counts.members }}
             </el-link>
             <span v-else>0</span>
           </template>
@@ -104,19 +104,19 @@
 
         <el-table-column label="项目数量" width="100" align="center">
           <template #default="{ row }">
-            <span>{{ row.projects || 0 }}</span>
+            <span>{{ row.counts.projects || 0 }}</span>
           </template>
         </el-table-column>
 
         <el-table-column label="测试用例" width="100" align="center">
           <template #default="{ row }">
-            <span>{{ row.test_cases || 0 }}</span>
+            <span>{{ row.counts.test_cases || 0 }}</span>
           </template>
         </el-table-column>
 
         <el-table-column label="设备型号" width="100" align="center">
           <template #default="{ row }">
-            <span>{{ row.device_models || 0 }}</span>
+            <span>{{ row.counts.device_models || 0 }}</span>
           </template>
         </el-table-column>
 
@@ -188,6 +188,7 @@ import AddDepartmentDialog from '@/components/Departments/AddDepartmentDialog.vu
 import EditDepartmentDialog from '@/components/Departments/EditDepartmentDialog.vue'
 import { departmentService } from '@/api/departments'
 import { formatDateTime } from '@/utils/format'
+import { DEPARTMENT_STATUS_OPTIONS } from '@/constants/department'
 
 const router = useRouter()
 const loading = ref(false)
@@ -195,11 +196,6 @@ const departmentList = ref([])
 const addDepartmentDialogRef = ref()
 const editDepartmentDialogRef = ref()
 
-// 部门状态选项 - 改为布尔值
-const DEPARTMENT_STATUS_OPTIONS = [
-  { label: '启用', value: true },
-  { label: '禁用', value: false }
-]
 
 // 筛选条件 - 参数名称调整
 const filters = reactive({
