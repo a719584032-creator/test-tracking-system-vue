@@ -17,7 +17,7 @@
     </div>
     <div class="layout">
       <div class="group-tree">
-        <case-group-tree :department-id="departmentId" @select="handleGroupSelect" />
+        <case-group-tree ref="groupTreeRef" :department-id="departmentId" @select="handleGroupSelect" />
       </div>
       <div class="case-table">
         <div class="toolbar">
@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import CaseGroupTree from './components/CaseGroupTree.vue'
@@ -96,7 +96,7 @@ import {
   TEST_CASE_STATUS_OPTIONS
 } from '@/constants/testCase'
 
-const filters = ref({
+const filters = reactive({
   title: '',
   status: '',
   priority: '',
@@ -108,6 +108,7 @@ const loading = ref(false)
 const caseList = ref([])
 const departments = ref([])
 const departmentId = ref(null)
+const groupTreeRef = ref()
 
 const page = ref(1)
 const pageSize = ref(20)
@@ -125,14 +126,14 @@ const fetchCases = async () => {
   if (!departmentId.value) return
   loading.value = true
   try {
-    const kw = parseKeywords(filters.value.keywords)
+    const kw = parseKeywords(filters.keywords)
     const params = {
-      title: filters.value.title,
-      status: filters.value.status,
-      priority: filters.value.priority,
-      case_type: filters.value.case_type,
+      title: filters.title,
+      status: filters.status,
+      priority: filters.priority,
+      case_type: filters.case_type,
       keywords: kw.length ? kw : undefined,
-      group_id: filters.value.group_id,
+      group_id: filters.group_id,
       page: page.value,
       page_size: pageSize.value
     }
@@ -147,7 +148,7 @@ const fetchCases = async () => {
 }
 
 const handleGroupSelect = (id) => {
-  filters.value.group_id = id
+  filters.group_id = id
   page.value = 1
   fetchCases()
 }
@@ -164,7 +165,8 @@ const fetchDepartments = async () => {
 }
 
 const handleDeptChange = () => {
-  filters.value.group_id = null
+  filters.group_id = null
+  groupTreeRef.value?.clearSelection()
   page.value = 1
   fetchCases()
 }
@@ -199,11 +201,15 @@ const handleSearch = () => {
   fetchCases()
 }
 const handleReset = () => {
-  filters.value.title = ''
-  filters.value.status = ''
-  filters.value.priority = ''
-  filters.value.case_type = ''
-  filters.value.keywords = ''
+  Object.assign(filters, {
+    title: '',
+    status: '',
+    priority: '',
+    case_type: '',
+    keywords: '',
+    group_id: null
+  })
+  groupTreeRef.value?.clearSelection()
   page.value = 1
   fetchCases()
 }
