@@ -27,6 +27,10 @@
           <el-icon><Document /></el-icon>
           <span>用例看板</span>
         </el-menu-item>
+        <el-menu-item index="/cases" class="menu-item">
+          <el-icon><Document /></el-icon>
+          <span>用例管理</span>
+        </el-menu-item>
         <el-menu-item index="/users" class="menu-item">
           <el-icon><User /></el-icon>
           <span>用户管理</span>

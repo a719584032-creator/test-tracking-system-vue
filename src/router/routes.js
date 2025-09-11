@@ -22,6 +22,18 @@ export const routes = [
         meta: { title: '用例看板' }
       },
       {
+        path: 'cases',
+        name: 'caseManage',
+        component: () => import('../pages/Cases/TestCaseManagePage.vue'),
+        meta: { title: '用例管理' }
+      },
+      {
+        path: '/cases/:id',
+        name: 'caseDetail',
+        component: () => import('../pages/Cases/TestCaseDetailPage.vue'),
+        meta: { title: '用例详情' }
+      },
+      {
         path: 'users',
         name: 'userManage',
         component: () => import('../pages/Users/UserManagePage.vue'),
@@ -40,6 +52,24 @@ export const routes = [
           requiresAuth: true
         //  roles: ['admin'] // 路由守卫中校验
         },
+      },
+      {
+        path: 'test-cases',
+        name: 'TestCaseManage',
+        component: () => import('../pages/TestCases/TestCaseManagePage.vue'),
+        meta: {
+          title: '用例管理',
+          requiresAuth: true
+        }
+      },
+      {
+        path: 'test-cases/:id',
+        name: 'TestCaseDetail',
+        component: () => import('../pages/TestCases/TestCaseDetailPage.vue'),
+        meta: {
+          title: '用例详情',
+          requiresAuth: true
+        }
       },
       {
         path: '/departments/:id',
