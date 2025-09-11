@@ -46,6 +46,11 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { testCaseService } from '@/api/testCases'
+import { caseGroupService } from '@/api/caseGroups'
+
+const props = defineProps({
+  departmentId: Number
+})
 
 const visible = ref(false)
 const mode = ref('create')
@@ -60,7 +65,8 @@ const form = ref({
   priority: '',
   case_type: '',
   group_id: null,
-  workload_minutes: 0
+  workload_minutes: 0,
+  department_id: null
 })
 
 const priorityOptions = [
@@ -82,10 +88,24 @@ const dialogTitle = computed(() => {
   return '新建用例'
 })
 
+const flattenGroups = (nodes, arr = []) => {
+  nodes.forEach(n => {
+    arr.push({ id: n.id, name: n.name })
+    if (n.children && n.children.length) {
+      flattenGroups(n.children, arr)
+    }
+  })
+  return arr
+}
+
 const loadGroups = async () => {
-  const resp = await testCaseService.groups()
+  if (!form.value.department_id) {
+    groupOptions.value = []
+    return
+  }
+  const resp = await caseGroupService.tree(form.value.department_id)
   if (resp.success) {
-    groupOptions.value = resp.data || []
+    groupOptions.value = flattenGroups(resp.data || [])
   }
 }
 
@@ -96,25 +116,65 @@ const open = (m = 'create', data = null) => {
     id: data?.id || null,
     title: data?.title || '',
     preconditions: data?.preconditions || '',
-    steps: data?.steps || '',
+    steps: data?.steps ? JSON.stringify(data.steps, null, 2) : '',
     expected_result: data?.expected_result || '',
-    keywords: data?.keywords || '',
+    keywords: Array.isArray(data?.keywords) ? data.keywords.join(',') : (data?.keywords || ''),
     priority: data?.priority || '',
     case_type: data?.case_type || '',
     group_id: data?.group_id || null,
-    workload_minutes: data?.workload_minutes || 0
+    workload_minutes: data?.workload_minutes || 0,
+    department_id: data?.department_id || props.departmentId || null
   }
   loadGroups()
 }
 
+const parseKeywords = (val) => {
+  if (!val) return []
+  return val.split(',').map(s => s.trim()).filter(Boolean)
+}
+const parseSteps = (val) => {
+  if (!val) return []
+  try {
+    return JSON.parse(val)
+  } catch (e) {
+    return []
+  }
+}
+
 const handleSubmit = async () => {
   let resp
-  const payload = { ...form.value }
   if (mode.value === 'edit') {
+    const payload = {
+      title: form.value.title,
+      preconditions: form.value.preconditions,
+      steps: parseSteps(form.value.steps),
+      expected_result: form.value.expected_result,
+      keywords: parseKeywords(form.value.keywords),
+      priority: form.value.priority,
+      case_type: form.value.case_type,
+      group_id: form.value.group_id,
+      workload_minutes: form.value.workload_minutes
+    }
     resp = await testCaseService.update(form.value.id, payload)
   } else if (mode.value === 'copy') {
+    const payload = {
+      title: form.value.title,
+      group_id: form.value.group_id
+    }
     resp = await testCaseService.copy(form.value.id, payload)
   } else {
+    const payload = {
+      department_id: form.value.department_id,
+      title: form.value.title,
+      preconditions: form.value.preconditions,
+      steps: parseSteps(form.value.steps),
+      expected_result: form.value.expected_result,
+      keywords: parseKeywords(form.value.keywords),
+      priority: form.value.priority,
+      case_type: form.value.case_type,
+      group_id: form.value.group_id,
+      workload_minutes: form.value.workload_minutes
+    }
     resp = await testCaseService.create(payload)
   }
   if (resp.success) {

@@ -53,14 +53,14 @@ function copyCaseGroup(groupId, payload) {
   return http.post(`/api/case-groups/${groupId}/copy`, payload)
 }
 
-// 分组树 GET /api/case-groups/:department_id/tree
+// 分组树 GET /api/case-groups/department/:department_id/tree
 function getCaseGroupTree(departmentId, params = {}) {
-  return http.get(`/api/case-groups/${departmentId}/tree`, { params })
+  return http.get(`/api/case-groups/department/${departmentId}/tree`, { params })
 }
 
-// 子分组列表 GET /api/case-groups/:department_id/children
+// 子分组列表 GET /api/case-groups/department/:department_id/children
 function getCaseGroupChildren(departmentId, params = {}) {
-  return http.get(`/api/case-groups/${departmentId}/children`, { params })
+  return http.get(`/api/case-groups/department/${departmentId}/children`, { params })
 }
 
 // ========== Service 层 ==========
@@ -91,8 +91,7 @@ export const caseGroupService = {
   /** 获取分组树 */
   tree: (departmentId, opts = {}) => {
     const params = {}
-    if (opts.with_cases === true) params.with_cases = 1
-    if (opts.only_enabled === true) params.only_enabled = 1
+    if (opts.with_case_count === true) params.with_case_count = true
     return handleRequest(getCaseGroupTree, [departmentId, params], '获取分组树失败')
   },
 
