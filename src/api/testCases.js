@@ -63,7 +63,6 @@ function copyTestCase(caseId, payload) {
   return http.post(`/api/test-cases/${caseId}/copy`, payload)
 }
 
-
 // 用例历史 GET /api/test-cases/:case_id/history
 function getTestCaseHistory(caseId, params = {}) {
   return http.get(`/api/test-cases/${caseId}/history`, { params })

@@ -69,13 +69,15 @@ const fetchCase = async () => {
 const handleEdit = () => formRef.value?.open('edit', caseData.value)
 const handleCopy = () => formRef.value?.open('copy', caseData.value)
 const handleDelete = async () => {
-  try {
+
+try {
     await ElMessageBox.confirm('确认删除该用例吗？', '提示', { type: 'warning' })
     const resp = await testCaseService.remove(caseData.value.id)
     if (resp.success) {
       router.back()
     }
   } catch {}
+
 }
 const handleHistory = () => {
   historyRef.value?.open(caseData.value.id)

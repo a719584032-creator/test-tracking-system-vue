@@ -70,6 +70,7 @@
           class="pagination"
           @current-change="fetchCases"
           @size-change="handleSizeChange"
+
         />
       </div>
     </div>
@@ -88,6 +89,7 @@ import TestCaseForm from './components/TestCaseForm.vue'
 import TestCaseHistory from './components/TestCaseHistory.vue'
 import { testCaseService } from '@/api/testCases'
 import { departmentService } from '@/api/departments'
+
 import {
   TEST_CASE_PRIORITY_OPTIONS,
   TEST_CASE_TYPE_OPTIONS,
@@ -106,6 +108,7 @@ const loading = ref(false)
 const caseList = ref([])
 const departments = ref([])
 const departmentId = ref(null)
+
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -113,6 +116,7 @@ const total = ref(0)
 const priorityOptions = TEST_CASE_PRIORITY_OPTIONS
 const typeOptions = TEST_CASE_TYPE_OPTIONS
 const statusOptions = TEST_CASE_STATUS_OPTIONS
+
 
 const formRef = ref()
 const historyRef = ref()
@@ -162,6 +166,22 @@ const fetchDepartments = async () => {
 const handleDeptChange = () => {
   filters.value.group_id = null
   page.value = 1
+  fetchCases()
+}
+
+const fetchDepartments = async () => {
+  const resp = await departmentService.list()
+  if (resp.success) {
+    departments.value = resp.data?.items || []
+    if (departments.value.length && !departmentId.value) {
+      departmentId.value = departments.value[0].id
+      fetchCases()
+    }
+  }
+}
+
+const handleDeptChange = () => {
+  filters.value.group_id = null
   fetchCases()
 }
 
@@ -245,10 +265,12 @@ onMounted(() => {
 .toolbar {
   margin-bottom: 20px;
 }
+
 .pagination {
   margin-top: 20px;
   text-align: right;
 }
+
 .dept-select {
   margin-bottom: 20px;
 }
