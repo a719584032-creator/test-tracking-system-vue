@@ -169,22 +169,6 @@ const handleDeptChange = () => {
   fetchCases()
 }
 
-const fetchDepartments = async () => {
-  const resp = await departmentService.list()
-  if (resp.success) {
-    departments.value = resp.data?.items || []
-    if (departments.value.length && !departmentId.value) {
-      departmentId.value = departments.value[0].id
-      fetchCases()
-    }
-  }
-}
-
-const handleDeptChange = () => {
-  filters.value.group_id = null
-  fetchCases()
-}
-
 const handleCreate = () => {
   formRef.value?.open('create')
 }
