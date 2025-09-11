@@ -28,49 +28,49 @@ async function handleRequest(apiFunc, args = [], defaultErrorMsg = '操作失败
 
 // ========== 基础 REST API 函数 ==========
 
-// 用例列表 GET /api/testcases
-function getTestCaseList(params = {}) {
-  return http.get('/api/testcases', { params })
+// 用例列表 GET /api/test-cases/department/:department_id
+function getTestCaseList(departmentId, params = {}) {
+  return http.get(`/api/test-cases/department/${departmentId}`, { params })
 }
 
-// 用例详情 GET /api/testcases/:case_id
+// 用例详情 GET /api/test-cases/:case_id
 function getTestCase(caseId) {
-  return http.get(`/api/testcases/${caseId}`)
+  return http.get(`/api/test-cases/${caseId}`)
 }
 
-// 创建用例 POST /api/testcases
+// 创建用例 POST /api/test-cases
 function createTestCase(payload) {
-  return http.post('/api/testcases', payload)
+  return http.post('/api/test-cases', payload)
 }
 
-// 更新用例 PUT /api/testcases/:case_id
+// 更新用例 PUT /api/test-cases/:case_id
 function updateTestCase(caseId, payload) {
-  return http.put(`/api/testcases/${caseId}`, payload)
+  return http.put(`/api/test-cases/${caseId}`, payload)
 }
 
-// 删除用例 DELETE /api/testcases/:case_id
+// 删除用例 DELETE /api/test-cases/:case_id
 function deleteTestCase(caseId) {
-  return http.delete(`/api/testcases/${caseId}`)
+  return http.delete(`/api/test-cases/${caseId}`)
 }
 
-// 批量删除用例 POST /api/testcases/batch-delete
+// 批量删除用例 DELETE /api/test-cases/batch
 function batchDeleteTestCases(payload) {
-  return http.post('/api/testcases/batch-delete', payload)
+  return http.delete('/api/test-cases/batch', { data: payload })
 }
 
-// 复制用例 POST /api/testcases/:case_id/copy
+// 复制用例 POST /api/test-cases/:case_id/copy
 function copyTestCase(caseId, payload) {
-  return http.post(`/api/testcases/${caseId}/copy`, payload)
+  return http.post(`/api/test-cases/${caseId}/copy`, payload)
 }
 
-// 恢复用例 POST /api/testcases/:case_id/restore
+// 恢复用例 POST /api/test-cases/:case_id/restore
 function restoreTestCase(caseId) {
-  return http.post(`/api/testcases/${caseId}/restore`)
+  return http.post(`/api/test-cases/${caseId}/restore`)
 }
 
-// 用例历史 GET /api/testcases/:case_id/history
+// 用例历史 GET /api/test-cases/:case_id/history
 function getTestCaseHistory(caseId, params = {}) {
-  return http.get(`/api/testcases/${caseId}/history`, { params })
+  return http.get(`/api/test-cases/${caseId}/history`, { params })
 }
 
 // ========== Service 层 ==========
@@ -81,13 +81,13 @@ export const testCaseService = {
    * @param {Object} params
    */
   list: (departmentId, params = {}) => {
-    const finalParams = { ...params, department_id: departmentId }
+    const finalParams = { ...params }
     Object.keys(finalParams).forEach(k => {
       if (finalParams[k] === '' || finalParams[k] === null || finalParams[k] === undefined) {
         delete finalParams[k]
       }
     })
-    return handleRequest(getTestCaseList, [finalParams], '获取用例列表失败')
+    return handleRequest(getTestCaseList, [departmentId, finalParams], '获取用例列表失败')
   },
 
   /** 获取用例详情 */
@@ -116,7 +116,7 @@ export const testCaseService = {
     const params = {}
     if (limit !== undefined && limit !== null) params.limit = limit
     return handleRequest(getTestCaseHistory, [caseId, params], '获取用例历史失败')
-  }
+  } 
 }
 
 export default testCaseService
