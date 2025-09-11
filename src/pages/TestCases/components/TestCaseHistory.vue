@@ -4,9 +4,9 @@
       <el-timeline-item
         v-for="item in records"
         :key="item.id"
-        :timestamp="item.created_at"
+        :timestamp="item.operated_at"
       >
-        {{ item.action }}
+        {{ item.change_summary }}
       </el-timeline-item>
     </el-timeline>
   </el-drawer>
@@ -23,7 +23,7 @@ const open = async (id) => {
   visible.value = true
   const resp = await testCaseService.history(id)
   if (resp.success) {
-    records.value = resp.data || []
+    records.value = resp.data?.items || []
   } else {
     records.value = []
   }

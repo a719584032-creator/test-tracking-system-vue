@@ -1,8 +1,23 @@
 <template>
   <div class="test-case-manage-page">
+    <div class="dept-select">
+      <el-select
+        v-model="departmentId"
+        placeholder="选择部门"
+        style="width: 200px; margin-bottom: 20px"
+        @change="handleDeptChange"
+      >
+        <el-option
+          v-for="d in departments"
+          :key="d.id"
+          :label="d.name"
+          :value="d.id"
+        />
+      </el-select>
+    </div>
     <div class="layout">
       <div class="group-tree">
-        <case-group-tree @select="handleGroupSelect" />
+        <case-group-tree :department-id="departmentId" @select="handleGroupSelect" />
       </div>
       <div class="case-table">
         <div class="toolbar">
@@ -26,26 +41,23 @@
           @copy="handleCopy"
           @delete="handleDelete"
           @history="handleHistory"
-          @view="handleView"
         />
       </div>
     </div>
-    <test-case-form ref="formRef" @success="handleRefresh" />
+    <test-case-form ref="formRef" :department-id="departmentId" @success="handleRefresh" />
     <test-case-history ref="historyRef" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import CaseGroupTree from './components/CaseGroupTree.vue'
 import TestCaseTable from './components/TestCaseTable.vue'
 import TestCaseForm from './components/TestCaseForm.vue'
 import TestCaseHistory from './components/TestCaseHistory.vue'
 import { testCaseService } from '@/api/testCases'
-
-const router = useRouter()
+import { departmentService } from '@/api/departments'
 
 const filters = ref({
   group_id: null,
@@ -53,16 +65,23 @@ const filters = ref({
 })
 const loading = ref(false)
 const caseList = ref([])
+const departments = ref([])
+const departmentId = ref(null)
 
 const formRef = ref()
 const historyRef = ref()
 
 const fetchCases = async () => {
+  if (!departmentId.value) return
   loading.value = true
   try {
-    const resp = await testCaseService.list(filters.value)
+    const params = {
+      title: filters.value.keyword,
+      group_id: filters.value.group_id
+    }
+    const resp = await testCaseService.list(departmentId.value, params)
     if (resp.success) {
-      caseList.value = resp.data || []
+      caseList.value = resp.data?.items || []
     }
   } finally {
     loading.value = false
@@ -71,6 +90,22 @@ const fetchCases = async () => {
 
 const handleGroupSelect = (id) => {
   filters.value.group_id = id
+  fetchCases()
+}
+
+const fetchDepartments = async () => {
+  const resp = await departmentService.list()
+  if (resp.success) {
+    departments.value = resp.data?.items || []
+    if (departments.value.length && !departmentId.value) {
+      departmentId.value = departments.value[0].id
+      fetchCases()
+    }
+  }
+}
+
+const handleDeptChange = () => {
+  filters.value.group_id = null
   fetchCases()
 }
 
@@ -84,7 +119,7 @@ const handleCopy = (row) => {
   formRef.value?.open('copy', row)
 }
 const handleDelete = async (row) => {
-  const resp = await testCaseService.delete(row.id)
+  const resp = await testCaseService.remove(row.id)
   if (resp.success) {
     fetchCases()
   }
@@ -92,14 +127,13 @@ const handleDelete = async (row) => {
 const handleHistory = (row) => {
   historyRef.value?.open(row.id)
 }
-const handleView = (row) => {
-  router.push({ name: 'TestCaseDetail', params: { id: row.id } })
-}
 const handleRefresh = () => {
   fetchCases()
 }
 
-onMounted(fetchCases)
+onMounted(() => {
+  fetchDepartments()
+})
 </script>
 
 <style scoped>
@@ -127,6 +161,9 @@ onMounted(fetchCases)
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 .toolbar {
+  margin-bottom: 20px;
+}
+.dept-select {
   margin-bottom: 20px;
 }
 </style>

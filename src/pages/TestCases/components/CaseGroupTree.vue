@@ -11,18 +11,26 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { testCaseService } from '@/api/testCases'
+import { ref, watch, onMounted } from 'vue'
+import { caseGroupService } from '@/api/caseGroups'
 
 const emit = defineEmits(['select'])
+const props = defineProps({
+  departmentId: Number
+})
 
 const groups = ref([])
 const treeProps = { label: 'name', children: 'children' }
 
 const fetchGroups = async () => {
-  const resp = await testCaseService.groups()
+  if (!props.departmentId) {
+    groups.value = []
+    return
+  }
+  const resp = await caseGroupService.tree(props.departmentId)
   if (resp.success) {
-    groups.value = resp.data || []
+    // 后端返回的树包含根节点，这里仅展示其 children
+    groups.value = resp.data?.children || []
   }
 }
 
@@ -31,4 +39,5 @@ const handleSelect = (data) => {
 }
 
 onMounted(fetchGroups)
+watch(() => props.departmentId, fetchGroups)
 </script>

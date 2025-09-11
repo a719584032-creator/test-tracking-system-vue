@@ -14,10 +14,9 @@
       <el-button type="primary" @click="handleEdit">编辑</el-button>
       <el-button @click="handleCopy">复制</el-button>
       <el-button type="danger" @click="handleDelete">删除</el-button>
-      <el-button @click="handleRestore">恢复</el-button>
       <el-button @click="handleHistory">历史</el-button>
     </div>
-    <test-case-form ref="formRef" @success="fetchCase" />
+    <test-case-form ref="formRef" :department-id="caseData.department_id" @success="fetchCase" />
     <test-case-history ref="historyRef" />
   </div>
 </template>
@@ -47,15 +46,9 @@ const fetchCase = async () => {
 const handleEdit = () => formRef.value?.open('edit', caseData.value)
 const handleCopy = () => formRef.value?.open('copy', caseData.value)
 const handleDelete = async () => {
-  const resp = await testCaseService.delete(caseData.value.id)
+  const resp = await testCaseService.remove(caseData.value.id)
   if (resp.success) {
     router.back()
-  }
-}
-const handleRestore = async () => {
-  const resp = await testCaseService.restore(caseData.value.id)
-  if (resp.success) {
-    fetchCase()
   }
 }
 const handleHistory = () => {
