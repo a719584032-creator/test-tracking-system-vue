@@ -22,18 +22,6 @@ export const routes = [
         meta: { title: '用例看板' }
       },
       {
-        path: 'cases',
-        name: 'caseManage',
-        component: () => import('../pages/Cases/TestCaseManagePage.vue'),
-        meta: { title: '用例管理' }
-      },
-      {
-        path: '/cases/:id',
-        name: 'caseDetail',
-        component: () => import('../pages/Cases/TestCaseDetailPage.vue'),
-        meta: { title: '用例详情' }
-      },
-      {
         path: 'users',
         name: 'userManage',
         component: () => import('../pages/Users/UserManagePage.vue'),
