@@ -172,4 +172,5 @@ export const departmentService = {
     handleRequest(removeDepartmentMember, [deptId, memberId], '移除成员失败')
 }
 
+
 export default departmentService
