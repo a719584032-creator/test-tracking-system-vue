@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/modules/auth'
 import router from '@/router'
 
 // 获取环境配置
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 const timeout = Number(import.meta.env.VITE_API_TIMEOUT) || 10000
 const shouldIgnoreSSL = import.meta.env.VITE_IGNORE_SSL === 'true'
 const isDev = import.meta.env.DEV

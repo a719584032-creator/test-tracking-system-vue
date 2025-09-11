@@ -105,7 +105,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { testCaseService } from '@/api/test-cases'
+import { testCaseService } from '@/api/testCases.js'
 
 const filters = reactive({
   title: '',
