@@ -42,6 +42,24 @@ export const routes = [
         },
       },
       {
+        path: 'test-cases',
+        name: 'TestCaseManage',
+        component: () => import('../pages/TestCases/TestCaseManagePage.vue'),
+        meta: {
+          title: '用例管理',
+          requiresAuth: true
+        }
+      },
+      {
+        path: 'test-cases/:id',
+        name: 'TestCaseDetail',
+        component: () => import('../pages/TestCases/TestCaseDetailPage.vue'),
+        meta: {
+          title: '用例详情',
+          requiresAuth: true
+        }
+      },
+      {
         path: '/departments/:id',
         name: 'DepartmentDetail',
         component: () => import('../pages/Departments/DepartmentDetail.vue'),
