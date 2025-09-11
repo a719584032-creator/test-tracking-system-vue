@@ -10,12 +10,19 @@
         </router-link>
       </template>
     </el-table-column>
-    <el-table-column prop="priority" label="优先级" width="100" />
-    <el-table-column prop="status" label="状态" width="100" />
-    <el-table-column prop="case_type" label="类型" width="120" />
-    <el-table-column label="分组" min-width="120">
+    <el-table-column prop="priority" label="优先级" width="100">
       <template #default="{ row }">
-        {{ row.group?.name || '-' }}
+        {{ priorityLabelMap[row.priority] || row.priority }}
+      </template>
+    </el-table-column>
+    <el-table-column prop="status" label="状态" width="100">
+      <template #default="{ row }">
+        {{ statusLabelMap[row.status] || row.status }}
+      </template>
+    </el-table-column>
+    <el-table-column prop="case_type" label="类型" width="120">
+      <template #default="{ row }">
+        {{ typeLabelMap[row.case_type] || row.case_type }}
       </template>
     </el-table-column>
     <el-table-column label="创建人" width="120">
@@ -38,6 +45,13 @@
 </template>
 
 <script setup>
+
+import {
+  TEST_CASE_PRIORITY_LABEL_MAP as priorityLabelMap,
+  TEST_CASE_STATUS_LABEL_MAP as statusLabelMap,
+  TEST_CASE_TYPE_LABEL_MAP as typeLabelMap
+} from '@/constants/testCase'
+
 defineProps({
   cases: { type: Array, default: () => [] },
   loading: Boolean

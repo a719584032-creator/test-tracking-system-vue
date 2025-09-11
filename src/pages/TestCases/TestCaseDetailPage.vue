@@ -1,14 +1,31 @@
 <template>
   <div class="test-case-detail-page" v-if="caseData">
     <el-card>
-      <h2>{{ caseData.title }}</h2>
-      <p><strong>前置条件：</strong>{{ caseData.preconditions }}</p>
-      <p><strong>步骤：</strong>{{ caseData.steps }}</p>
-      <p><strong>预期结果：</strong>{{ caseData.expected_result }}</p>
-      <p><strong>关键词：</strong>{{ caseData.keywords }}</p>
-      <p><strong>优先级：</strong>{{ caseData.priority }}</p>
-      <p><strong>类型：</strong>{{ caseData.case_type }}</p>
-      <p><strong>工作量：</strong>{{ caseData.workload_minutes }} 分钟</p>
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="标题">{{ caseData.title }}</el-descriptions-item>
+        <el-descriptions-item label="所属分组">{{ caseData.group?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="前置条件">{{ caseData.preconditions }}</el-descriptions-item>
+        <el-descriptions-item label="关键词">{{ caseData.keywords?.join(', ') }}</el-descriptions-item>
+        <el-descriptions-item label="优先级">{{ priorityLabelMap[caseData.priority] || caseData.priority }}</el-descriptions-item>
+        <el-descriptions-item label="状态">{{ statusLabelMap[caseData.status] || caseData.status }}</el-descriptions-item>
+        <el-descriptions-item label="类型">{{ typeLabelMap[caseData.case_type] || caseData.case_type }}</el-descriptions-item>
+        <el-descriptions-item label="预期结果">{{ caseData.expected_result }}</el-descriptions-item>
+        <el-descriptions-item label="工作量">{{ caseData.workload_minutes }} 分钟</el-descriptions-item>
+        <el-descriptions-item label="版本">{{ caseData.version }}</el-descriptions-item>
+        <el-descriptions-item label="创建人">{{ caseData.creator?.username }}</el-descriptions-item>
+        <el-descriptions-item label="更新人">{{ caseData.updater?.username }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ caseData.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="更新时间">{{ caseData.updated_at }}</el-descriptions-item>
+      </el-descriptions>
+
+      <h3 style="margin-top:20px">步骤</h3>
+      <el-table :data="caseData.steps" style="width:100%" v-if="caseData.steps && caseData.steps.length">
+        <el-table-column prop="no" label="序号" width="60" />
+        <el-table-column prop="action" label="操作" />
+        <el-table-column prop="keyword" label="关键字" />
+        <el-table-column prop="note" label="备注" />
+        <el-table-column prop="expected" label="预期结果" />
+      </el-table>
     </el-card>
     <div class="actions">
       <el-button type="primary" @click="handleEdit">编辑</el-button>
@@ -24,9 +41,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 import { testCaseService } from '@/api/testCases'
 import TestCaseForm from './components/TestCaseForm.vue'
 import TestCaseHistory from './components/TestCaseHistory.vue'
+import {
+  TEST_CASE_PRIORITY_LABEL_MAP as priorityLabelMap,
+  TEST_CASE_STATUS_LABEL_MAP as statusLabelMap,
+  TEST_CASE_TYPE_LABEL_MAP as typeLabelMap
+} from '@/constants/testCase'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,10 +69,15 @@ const fetchCase = async () => {
 const handleEdit = () => formRef.value?.open('edit', caseData.value)
 const handleCopy = () => formRef.value?.open('copy', caseData.value)
 const handleDelete = async () => {
-  const resp = await testCaseService.remove(caseData.value.id)
-  if (resp.success) {
-    router.back()
-  }
+
+try {
+    await ElMessageBox.confirm('确认删除该用例吗？', '提示', { type: 'warning' })
+    const resp = await testCaseService.remove(caseData.value.id)
+    if (resp.success) {
+      router.back()
+    }
+  } catch {}
+
 }
 const handleHistory = () => {
   historyRef.value?.open(caseData.value.id)
