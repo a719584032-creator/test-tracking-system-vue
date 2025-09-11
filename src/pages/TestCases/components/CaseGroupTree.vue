@@ -1,48 +1,34 @@
-<!-- ================== src/pages/TestCases/components/CaseGroupTree.vue ================== -->
+
 <template>
   <el-tree
-    v-loading="loading"
-    :data="treeData"
+    :data="groups"
     node-key="id"
     :props="treeProps"
-    show-checkbox
+    highlight-current
     default-expand-all
-    @check="handleCheck"
+    @node-click="handleSelect"
   />
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { caseGroupService } from '@/api/case-groups'
+import { testCaseService } from '@/api/testCases'
 
-const emit = defineEmits(['selected'])
+const emit = defineEmits(['select'])
 
-const treeData = ref([])
-const loading = ref(false)
+const groups = ref([])
 const treeProps = { label: 'name', children: 'children' }
 
-const fetchTree = async () => {
-  loading.value = true
-  try {
-    const resp = await caseGroupService.tree()
-    if (resp.success) {
-      treeData.value = resp.data || []
-    }
-  } catch (e) {
-    console.error('获取用例分组失败', e)
-    ElMessage.error('获取用例分组失败')
-  } finally {
-    loading.value = false
+const fetchGroups = async () => {
+  const resp = await testCaseService.groups()
+  if (resp.success) {
+    groups.value = resp.data || []
   }
 }
 
-const handleCheck = (_data, { checkedKeys }) => {
-  emit('selected', checkedKeys)
+const handleSelect = (data) => {
+  emit('select', data.id)
 }
 
-onMounted(fetchTree)
+onMounted(fetchGroups)
 </script>
-
-<style scoped>
-</style>
