@@ -41,7 +41,6 @@
           @copy="handleCopy"
           @delete="handleDelete"
           @history="handleHistory"
-          @view="handleView"
         />
       </div>
     </div>
@@ -52,7 +51,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import CaseGroupTree from './components/CaseGroupTree.vue'
 import TestCaseTable from './components/TestCaseTable.vue'
@@ -61,7 +59,6 @@ import TestCaseHistory from './components/TestCaseHistory.vue'
 import { testCaseService } from '@/api/testCases'
 import { departmentService } from '@/api/departments'
 
-const router = useRouter()
 
 const filters = ref({
   group_id: null,
@@ -130,9 +127,6 @@ const handleDelete = async (row) => {
 }
 const handleHistory = (row) => {
   historyRef.value?.open(row.id)
-}
-const handleView = (row) => {
-  router.push({ name: 'TestCaseDetail', params: { id: row.id } })
 }
 const handleRefresh = () => {
   fetchCases()

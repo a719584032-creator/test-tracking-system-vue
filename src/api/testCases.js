@@ -63,11 +63,6 @@ function copyTestCase(caseId, payload) {
   return http.post(`/api/test-cases/${caseId}/copy`, payload)
 }
 
-// 恢复用例 POST /api/test-cases/:case_id/restore
-function restoreTestCase(caseId) {
-  return http.post(`/api/test-cases/${caseId}/restore`)
-}
-
 // 用例历史 GET /api/test-cases/:case_id/history
 function getTestCaseHistory(caseId, params = {}) {
   return http.get(`/api/test-cases/${caseId}/history`, { params })
@@ -107,9 +102,6 @@ export const testCaseService = {
 
   /** 复制用例 */
   copy: (caseId, payload) => handleRequest(copyTestCase, [caseId, payload], '复制用例失败'),
-
-  /** 恢复用例 */
-  restore: (caseId) => handleRequest(restoreTestCase, [caseId], '恢复用例失败'),
 
   /** 获取用例历史 */
   history: (caseId, limit) => {

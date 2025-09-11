@@ -29,7 +29,8 @@ const fetchGroups = async () => {
   }
   const resp = await caseGroupService.tree(props.departmentId)
   if (resp.success) {
-    groups.value = resp.data || []
+    // 后端返回的树包含根节点，这里仅展示其 children
+    groups.value = resp.data?.children || []
   }
 }
 

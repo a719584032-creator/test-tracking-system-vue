@@ -1,6 +1,15 @@
 <template>
   <el-table :data="cases" v-loading="loading" style="width: 100%">
-    <el-table-column prop="title" label="标题" min-width="200" />
+    <el-table-column label="标题" min-width="200">
+      <template #default="{ row }">
+        <router-link
+          class="case-title"
+          :to="{ name: 'TestCaseDetail', params: { id: row.id } }"
+        >
+          {{ row.title }}
+        </router-link>
+      </template>
+    </el-table-column>
     <el-table-column prop="priority" label="优先级" width="100" />
     <el-table-column prop="status" label="状态" width="100" />
     <el-table-column prop="case_type" label="类型" width="120" />
@@ -15,13 +24,14 @@
       </template>
     </el-table-column>
     <el-table-column prop="created_at" label="创建时间" width="180" />
-    <el-table-column label="操作" width="260">
+    <el-table-column label="操作" width="240">
       <template #default="{ row }">
-        <el-button size="small" @click="$emit('view', row)">查看</el-button>
-        <el-button size="small" type="primary" @click="$emit('edit', row)">编辑</el-button>
-        <el-button size="small" @click="$emit('copy', row)">复制</el-button>
-        <el-button size="small" type="danger" @click="$emit('delete', row)">删除</el-button>
-        <el-button size="small" @click="$emit('history', row)">历史</el-button>
+        <div class="actions">
+          <el-button size="small" type="primary" @click="$emit('edit', row)">编辑</el-button>
+          <el-button size="small" @click="$emit('copy', row)">复制</el-button>
+          <el-button size="small" type="danger" @click="$emit('delete', row)">删除</el-button>
+          <el-button size="small" @click="$emit('history', row)">历史</el-button>
+        </div>
       </template>
     </el-table-column>
   </el-table>
@@ -33,8 +43,16 @@ defineProps({
   loading: Boolean
 })
 
-defineEmits(['edit', 'copy', 'delete', 'history', 'view'])
+defineEmits(['edit', 'copy', 'delete', 'history'])
 </script>
 
 <style scoped>
+.case-title {
+  color: #409eff;
+}
+.actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
 </style>
