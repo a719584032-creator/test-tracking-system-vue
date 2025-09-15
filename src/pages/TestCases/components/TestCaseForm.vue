@@ -296,22 +296,32 @@ const removeStep = (index) => {
   form.value.steps.splice(index, 1)
 }
 
-const open = (m = 'create', data = null) => {
+const open = async (m = 'create', data = null) => {
   mode.value = m
-  visible.value = true
-  form.value = {
-    id: data?.id || null,
-    title: data?.title || '',
-    preconditions: data?.preconditions || '',
-    steps: Array.isArray(data?.steps) ? data.steps.map(s => ({ ...s })) : [],
-    expected_result: data?.expected_result || '',
-    keywords: Array.isArray(data?.keywords) ? data.keywords.join(',') : (data?.keywords || ''),
-    priority: data?.priority || '',
-    case_type: data?.case_type || '',
-    group_id: data?.group_id || null,
-    workload_minutes: data?.workload_minutes || 0,
-    department_id: data?.department_id || props.departmentId || null
+
+  let detail = data
+  if (data?.id) {
+    const resp = await testCaseService.get(data.id)
+    if (resp.success) {
+      detail = resp.data
+    }
   }
+
+  form.value = {
+    id: detail?.id || null,
+    title: detail?.title || '',
+    preconditions: detail?.preconditions || '',
+    steps: Array.isArray(detail?.steps) ? detail.steps.map(s => ({ ...s })) : [],
+    expected_result: detail?.expected_result || '',
+    keywords: Array.isArray(detail?.keywords) ? detail.keywords.join(',') : (detail?.keywords || ''),
+    priority: detail?.priority || '',
+    case_type: detail?.case_type || '',
+    group_id: detail?.group_id || null,
+    workload_minutes: detail?.workload_minutes || 0,
+    department_id: detail?.department_id || props.departmentId || null
+  }
+
+  visible.value = true
   loadGroups()
 }
 

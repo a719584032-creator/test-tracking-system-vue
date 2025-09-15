@@ -191,6 +191,7 @@ const fetchCase = async () => {
   const resp = await testCaseService.get(id)
   if (resp.success) {
     caseData.value = resp.data
+    historyRef.value?.open(id)
   }
 }
 
