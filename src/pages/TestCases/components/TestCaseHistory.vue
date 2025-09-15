@@ -161,12 +161,11 @@ const getTimelineType = (action) => {
 const getActionTagType = (action) => {
   const map = {
     CREATE: 'success',
-    UPDATE: '',
     DELETE: 'danger',
     COPY: 'warning',
     RESTORE: 'info'
   }
-  return map[action] || ''
+  return map[action]
 }
 
 const getActionLabel = (action) => {
@@ -183,6 +182,22 @@ const hasChangedFields = (item) => {
 
 const formatValue = (value) => {
   if (value === null || value === undefined) return '-'
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item, idx) => {
+        if (item && typeof item === 'object') {
+          const no = item.no ?? idx + 1
+          const action = item.action || ''
+          const expected = item.expected ? `→${item.expected}` : ''
+          const text = `${no}. ${action}${expected}`.trim()
+          return text || JSON.stringify(item)
+        }
+        return String(item)
+      })
+      .join('；')
+  }
+
   return String(value)
 }
 
