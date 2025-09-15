@@ -41,8 +41,8 @@
           <span class="case-title">{{ caseData.title }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="所属分组">
-          <el-tag v-if="caseData.group?.name" type="info" size="small">
-            {{ caseData.group.name }}
+          <el-tag v-if="caseData.group?.path" type="info" size="small">
+            {{ trimRoot(caseData.group.path) }}
           </el-tag>
           <span v-else class="text-placeholder">-</span>
         </el-descriptions-item>
@@ -218,6 +218,11 @@ const handleHistory = () => {
 const formatTime = (time) => {
   if (!time) return '-'
   return new Date(time).toLocaleString('zh-CN')
+}
+
+const trimRoot = (path) => {
+  if (!path) return ''
+  return path.replace(/^root\//, '')
 }
 
 const getStatusTagType = (status) => {
