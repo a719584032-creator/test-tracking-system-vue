@@ -41,8 +41,8 @@
           <span class="case-title">{{ caseData.title }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="所属分组">
-          <el-tag v-if="caseData.group?.name" type="info" size="small">
-            {{ caseData.group.name }}
+          <el-tag v-if="caseData.group?.path" type="info" size="small">
+            {{trimRoot(caseData.group.path) }}
           </el-tag>
           <span v-else class="text-placeholder">-</span>
         </el-descriptions-item>
@@ -72,7 +72,7 @@
           <span class="user-info">{{ caseData.updater?.username || '-' }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
-          <span class="time-info">{{ formatTime(caseData.created_at) }}</span>
+          <span class="time-info">{{ formatDateTime (caseData.created_at) }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="前置条件" :span="2">
           <div class="content-text">
@@ -178,6 +178,7 @@ import {
   TEST_CASE_STATUS_LABEL_MAP as statusLabelMap,
   TEST_CASE_TYPE_LABEL_MAP as typeLabelMap
 } from '@/constants/testCase'
+import { formatDateTime } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -214,9 +215,9 @@ const handleHistory = () => {
 }
 
 // 工具函数
-const formatTime = (time) => {
-  if (!time) return '-'
-  return new Date(time).toLocaleString('zh-CN')
+const trimRoot = (path) => {
+  if (!path) return ''
+  return path.replace(/^root\//, '')
 }
 
 const getStatusTagType = (status) => {

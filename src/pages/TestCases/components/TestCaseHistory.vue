@@ -25,9 +25,9 @@
         <el-timeline-item
           v-for="(item, index) in records"
           :key="item.id"
-          :timestamp="formatTime(item.created_at)"
+          :timestamp="formatTime(item.operated_at)"
           placement="top"
-          :type="getTimelineType(item.action)"
+          :type="getTimelineType(item.change_type)"
           :size="index === 0 ? 'large' : 'normal'"
           :hollow="index !== 0"
         >
@@ -35,11 +35,11 @@
             <div class="card-header">
               <div class="action-info">
                 <el-tag
-                  :type="getActionTagType(item.action)"
+                  :type="getActionTagType(item.change_type)"
                   size="small"
                   class="action-tag"
                 >
-                  {{ getActionLabel(item.action) }}
+                  {{ getActionLabel(item.change_type) }}
                 </el-tag>
                 <span class="version">v{{ item.version || '1.0' }}</span>
               </div>
@@ -51,35 +51,21 @@
               </div>
             </div>
 
-            <div class="card-content" v-if="item.changes && item.changes.length">
-              <h5 class="changes-title">变更内容：</h5>
-              <div class="changes-list">
-                <div
-                  v-for="change in item.changes"
-                  :key="change.field"
-                  class="change-item"
-                >
-                  <div class="field-name">{{ getFieldLabel(change.field) }}</div>
-                  <div class="change-values">
-                    <div class="old-value" v-if="change.old_value">
-                      <span class="label">原值：</span>
-                      <span class="value">{{ formatValue(change.old_value) }}</span>
-                    </div>
-                    <el-icon class="arrow-icon" v-if="change.old_value && change.new_value">
-                      <ArrowRight />
-                    </el-icon>
-                    <div class="new-value" v-if="change.new_value">
-                      <span class="label">新值：</span>
-                      <span class="value">{{ formatValue(change.new_value) }}</span>
-                    </div>
-                  </div>
+            <div class="card-content">
+              <p class="summary">{{ item.change_summary }}</p>
+              <div v-if="item.changed_fields" class="changes-block">
+                <h5 class="changes-title">变更字段：</h5>
+                <div class="changes-list">
+                  <el-tag
+                    v-for="field in Object.keys(item.changed_fields)"
+                    :key="field"
+                    size="small"
+                    class="change-tag"
+                  >
+                    {{ getFieldLabel(field) }}
+                  </el-tag>
                 </div>
               </div>
-            </div>
-
-            <div class="card-content" v-if="item.comment">
-              <h5 class="comment-title">备注：</h5>
-              <p class="comment-text">{{ item.comment }}</p>
             </div>
           </div>
         </el-timeline-item>
@@ -90,7 +76,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Clock, ArrowRight } from '@element-plus/icons-vue'
+import { Clock } from '@element-plus/icons-vue'
 import { testCaseService } from '@/api/testCases'
 
 const visible = ref(false)
@@ -112,11 +98,11 @@ const fieldLabelMap = {
 }
 
 const actionLabelMap = {
-  create: '创建',
-  update: '更新',
-  delete: '删除',
-  copy: '复制',
-  restore: '恢复'
+  CREATE: '创建',
+  UPDATE: '更新',
+  DELETE: '删除',
+  COPY: '复制',
+  RESTORE: '恢复'
 }
 
 const fetchHistory = async () => {
@@ -154,22 +140,22 @@ const formatTime = (time) => {
 
 const getTimelineType = (action) => {
   const map = {
-    create: 'success',
-    update: 'primary',
-    delete: 'danger',
-    copy: 'warning',
-    restore: 'info'
+    CREATE: 'success',
+    UPDATE: 'primary',
+    DELETE: 'danger',
+    COPY: 'warning',
+    RESTORE: 'info'
   }
   return map[action] || 'primary'
 }
 
 const getActionTagType = (action) => {
   const map = {
-    create: 'success',
-    update: '',
-    delete: 'danger',
-    copy: 'warning',
-    restore: 'info'
+    CREATE: 'success',
+    UPDATE: '',
+    DELETE: 'danger',
+    COPY: 'warning',
+    RESTORE: 'info'
   }
   return map[action] || ''
 }
@@ -180,13 +166,6 @@ const getActionLabel = (action) => {
 
 const getFieldLabel = (field) => {
   return fieldLabelMap[field] || field
-}
-
-const formatValue = (value) => {
-  if (value === null || value === undefined) return '空'
-  if (typeof value === 'object') return JSON.stringify(value)
-  if (typeof value === 'boolean') return value ? '是' : '否'
-  return String(value)
 }
 
 defineExpose({ open })
@@ -305,7 +284,16 @@ defineExpose({ open })
   margin-bottom: 0;
 }
 
-.changes-title, .comment-title {
+.summary {
+  margin: 0 0 12px 0;
+  color: #606266;
+}
+
+.changes-block {
+  margin-top: 8px;
+}
+
+.changes-title {
   margin: 0 0 12px 0;
   color: #303133;
   font-size: 14px;
@@ -314,77 +302,12 @@ defineExpose({ open })
 
 .changes-list {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.change-item {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 12px;
-  border-left: 4px solid #409eff;
-}
-
-.field-name {
-  color: #409eff;
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-.change-values {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.old-value, .new-value {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.old-value .label {
-  color: #f56c6c;
-  font-weight: 500;
-}
-
-.new-value .label {
-  color: #67c23a;
-  font-weight: 500;
-}
-
-.old-value .value {
-  background: #fef0f0;
-  color: #f56c6c;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid #fbc4c4;
-}
-
-.new-value .value {
-  background: #f0f9ff;
-  color: #67c23a;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid #b3d8ff;
-}
-
-.arrow-icon {
-  color: #909399;
-  font-size: 14px;
-}
-
-.comment-text {
+.change-tag {
   margin: 0;
-  color: #606266;
-  line-height: 1.6;
-  background: #f0f9ff;
-  padding: 12px;
-  border-radius: 8px;
-  border-left: 4px solid #409eff;
 }
 
 /* 时间轴样式优化 */
