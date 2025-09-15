@@ -139,10 +139,24 @@ const getBreadcrumbTitle = () => {
     '/dashboard': '首页',
     '/plans/board': '用例看板',
     '/users': '用户管理',
-    '/departments': '部门管理'
+    '/departments': '部门管理',
+    '/test-cases': '用例管理',
   }
+
+  // 动态详情：/test-cases/:id （id 为数字）
+  if (/^\/test-cases\/\d+$/.test(route.path)) {
+    return '用例详情'
+  }
+
+  // 或者更稳：依赖路由参数是否有 id
+  // if (route.path.startsWith('/test-cases/') && route.params && route.params.id) {
+  //   return '用例详情'
+  // }
+
   return routeMap[route.path] || '首页'
 }
+
+
 
 // 处理下拉菜单命令
 const handleCommand = (command) => {

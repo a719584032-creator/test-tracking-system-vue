@@ -3,23 +3,21 @@
 <template>
   <div class="test-case-detail-page" v-if="caseData">
     <!-- 添加面包屑导航 -->
-    <div class="page-header">
+  <div class="page-header">
+    <div class="breadcrumb-row">
+      <el-link class="back-link" :underline="false" @click="handleBack">
+        <el-icon class="back-icon"><ArrowLeft /></el-icon>
+        返回
+      </el-link>
+
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item>
-          <el-button
-            type="text"
-            @click="handleBack"
-            class="back-btn"
-          >
-            <el-icon><ArrowLeft /></el-icon>
-            返回
-          </el-button>
-        </el-breadcrumb-item>
         <el-breadcrumb-item>测试用例管理</el-breadcrumb-item>
         <el-breadcrumb-item>用例详情</el-breadcrumb-item>
       </el-breadcrumb>
-      <h2 class="page-title">{{ caseData.title }}</h2>
     </div>
+
+    <h2 class="page-title">{{ caseData.title }}</h2>
+  </div>
 
     <el-card class="detail-card">
       <template #header>
@@ -250,6 +248,43 @@ onMounted(fetchCase)
 
 .page-header {
   margin-bottom: 24px;
+}
+
+.breadcrumb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;         /* 返回 与 面包屑 的间距 */
+  min-height: 22px;  /* 和面包屑高度接近，避免抖动 */
+}
+
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--el-color-primary);
+  cursor: pointer;
+}
+
+.back-link:hover {
+  color: var(--el-color-primary-light-3);
+}
+
+.back-icon {
+  line-height: 1;
+}
+
+/* 让面包屑的每一项都参与垂直居中 */
+:deep(.el-breadcrumb),
+:deep(.el-breadcrumb__item),
+:deep(.el-breadcrumb__inner) {
+  display: flex;
+  align-items: center;
+}
+
+:deep(.el-breadcrumb__separator) {
+  padding: 0 8px;  /* 分隔符左右留白 */
 }
 
 .back-btn {
