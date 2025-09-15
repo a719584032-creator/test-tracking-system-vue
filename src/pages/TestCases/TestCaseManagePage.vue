@@ -372,7 +372,7 @@ onMounted(() => {
 .layout {
   display: flex;
   gap: 24px;
-  height: calc(100vh - 200px);
+  align-items: flex-start;
 }
 
 .group-tree {
@@ -381,7 +381,6 @@ onMounted(() => {
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }

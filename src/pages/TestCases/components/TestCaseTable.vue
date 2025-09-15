@@ -38,7 +38,11 @@
         </template>
       </el-table-column>
 
-      <el-table-column prop="case_type" label="类型" width="100" align="center" />
+      <el-table-column label="类型" width="100" align="center">
+        <template #default="{ row }">
+          {{ TEST_CASE_TYPE_LABEL_MAP[row.case_type] || '-' }}
+        </template>
+      </el-table-column>
 
       <el-table-column label="更新人 / 时间" min-width="180">
         <template #default="{ row }">
@@ -46,7 +50,7 @@
             <div class="username">{{ row.updated_by || row.created_by || '-' }}</div>
             <div class="time-info">
               <el-icon><Timer /></el-icon>
-              <span class="time-text">{{ row.updated_at || row.created_at || '-' }}</span>
+              <span class="time-text">{{ formatDateTime(row.updated_at || row.created_at) || '-' }}</span>
             </div>
           </div>
         </template>
@@ -87,6 +91,8 @@
 
 <script setup>
 import { Document, Edit, Delete, Plus, Clock, Timer, DocumentCopy } from '@element-plus/icons-vue'
+import { TEST_CASE_TYPE_LABEL_MAP } from '@/constants/testCase'
+import { formatDateTime } from '@/utils/format'
 defineProps({
   cases: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }
