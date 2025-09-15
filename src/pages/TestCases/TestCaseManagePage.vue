@@ -35,9 +35,6 @@
           :department-id="departmentId"
           @group-select="handleGroupSelect"
           @case-click="handleCaseClick"
-          @create-group="handleCreateGroup"
-          @edit-group="handleEditGroup"
-          @delete-group="handleDeleteGroup"
         />
       </div>
 

@@ -6,10 +6,11 @@
       v-loading="loading"
       style="width: 100%"
       class="custom-table"
+      :row-key="row => row.id"
       :header-cell-style="{ background: '#f8f9fa', color: '#606266', fontWeight: '600' }"
       stripe
     >
-      <el-table-column label="标题" min-width="250">
+      <el-table-column label="标题" min-width="260" show-overflow-tooltip>
         <template #default="{ row }">
           <router-link
             class="case-title-link"
@@ -21,98 +22,51 @@
         </template>
       </el-table-column>
 
-      <el-table-column prop="priority" label="优先级" width="100" align="center">
+      <el-table-column prop="priority" label="优先级" width="92" align="center">
         <template #default="{ row }">
-          <el-tag
-            :type="getPriorityTagType(row.priority)"
-            size="small"
-            class="priority-tag"
-          >
-            {{ priorityLabelMap[row.priority] || row.priority }}
+          <el-tag :type="getPriorityTagType(row.priority)" size="small">
+            {{ row.priority || '-' }}
           </el-tag>
         </template>
       </el-table-column>
 
-      <el-table-column prop="status" label="状态" width="100" align="center">
+      <el-table-column prop="status" label="状态" width="92" align="center">
         <template #default="{ row }">
-          <el-tag
-            :type="getStatusTagType(row.status)"
-            size="small"
-            class="status-tag"
-          >
-            {{ statusLabelMap[row.status] || row.status }}
+          <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+            {{ row.status === 'active' ? '有效' : '废弃' }}
           </el-tag>
         </template>
       </el-table-column>
 
-      <el-table-column prop="case_type" label="类型" width="120" align="center">
-        <template #default="{ row }">
-          <el-tag
-            type="success"
-            size="small"
-            class="type-tag"
-          >
-            {{ typeLabelMap[row.case_type] || row.case_type }}
-          </el-tag>
-        </template>
-      </el-table-column>
+      <el-table-column prop="case_type" label="类型" width="100" align="center" />
 
-      <el-table-column label="创建人" width="120" align="center">
+      <el-table-column label="更新人 / 时间" min-width="180">
         <template #default="{ row }">
           <div class="user-info">
-            <el-avatar :size="24" class="user-avatar">
-              {{ (row.creator?.username || 'U')[0].toUpperCase() }}
-            </el-avatar>
-            <span class="username">{{ row.creator?.username || '-' }}</span>
+            <div class="username">{{ row.updated_by || row.created_by || '-' }}</div>
+            <div class="time-info">
+              <el-icon><Timer /></el-icon>
+              <span class="time-text">{{ row.updated_at || row.created_at || '-' }}</span>
+            </div>
           </div>
         </template>
       </el-table-column>
 
-      <el-table-column prop="created_at" label="创建时间" width="180" align="center">
-        <template #default="{ row }">
-          <div class="time-info">
-            <el-icon class="time-icon"><Clock /></el-icon>
-            {{ formatTime(row.created_at) }}
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="操作" width="260" align="center" fixed="right">
+      <!-- 操作列：固定在右侧，按钮紧凑、始终不换行 -->
+      <el-table-column label="操作" fixed="right" min-width="280" align="center">
         <template #default="{ row }">
           <div class="actions">
-            <el-button
-              size="small"
-              type="primary"
-              @click="$emit('edit', row)"
-              class="action-btn"
-            >
-              <el-icon><Edit /></el-icon>
-              编辑
+            <el-button size="small" type="primary" text @click="$emit('edit', row)">
+              <el-icon><Edit /></el-icon> 编辑
             </el-button>
-            <el-button
-              size="small"
-              @click="$emit('copy', row)"
-              class="action-btn"
-            >
-              <el-icon><CopyDocument /></el-icon>
-              复制
+            <el-button size="small" text @click="$emit('copy', row)">
+              <el-icon><DocumentCopy /></el-icon> 复制
             </el-button>
-            <el-button
-              size="small"
-              @click="$emit('history', row)"
-              class="action-btn"
-            >
-              <el-icon><Clock /></el-icon>
-              历史
+            <el-button size="small" text @click="$emit('history', row)">
+              <el-icon><Clock /></el-icon> 历史
             </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              @click="$emit('delete', row)"
-              class="action-btn"
-            >
-              <el-icon><Delete /></el-icon>
-              删除
+            <el-button size="small" type="danger" text @click="$emit('delete', row)">
+              <el-icon><Delete /></el-icon> 删除
             </el-button>
           </div>
         </template>
@@ -121,10 +75,7 @@
 
     <!-- 空状态 -->
     <div v-if="!loading && (!cases || cases.length === 0)" class="empty-state">
-      <el-empty
-        description="暂无用例数据"
-        :image-size="120"
-      >
+      <el-empty description="暂无用例数据" :image-size="120">
         <el-button type="primary" @click="$emit('create')">
           <el-icon><Plus /></el-icon>
           创建第一个用例
@@ -135,105 +86,42 @@
 </template>
 
 <script setup>
-import {
-  Document,
-  Edit,
-  CopyDocument,
-  Clock,
-  Delete,
-  Plus
-} from '@element-plus/icons-vue'
-import {
-  TEST_CASE_PRIORITY_LABEL_MAP as priorityLabelMap,
-  TEST_CASE_STATUS_LABEL_MAP as statusLabelMap,
-  TEST_CASE_TYPE_LABEL_MAP as typeLabelMap
-} from '@/constants/testCase'
-
+import { Document, Edit, Delete, Plus, Clock, Timer, DocumentCopy } from '@element-plus/icons-vue'
 defineProps({
-  cases: Array,
-  loading: Boolean
+  cases: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false }
 })
 
-defineEmits(['edit', 'copy', 'delete', 'history', 'create'])
-
-// 工具函数
-const formatTime = (time) => {
-  if (!time) return '-'
-  return new Date(time).toLocaleDateString('zh-CN')
-}
-
-const getPriorityTagType = (priority) => {
-  const map = {
-    'high': 'danger',
-    'medium': 'warning',
-    'low': 'success'
-  }
-  return map[priority] || 'info'
-}
-
-const getStatusTagType = (status) => {
-  const map = {
-    'active': 'success',
-    'inactive': 'info',
-    'deprecated': 'warning'
-  }
-  return map[status] || 'info'
+// 映射优先级样式
+const getPriorityTagType = (p) => {
+  if (p === 'P0') return 'danger'
+  if (p === 'P1') return 'warning'
+  if (p === 'P2') return 'info'
+  return ''
 }
 </script>
 
 <style scoped>
-.test-case-table {
-  flex: 1;
-  overflow: hidden;
-}
-
-.custom-table {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.custom-table :deep(.el-table__cell) {
+  font-size: 13px;
 }
 
 .case-title-link {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  color: #409eff;
+  gap: 6px;
+  color: #1f6feb;
   text-decoration: none;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.case-title-link:hover {
-  color: #66b1ff;
-  text-decoration: underline;
 }
 
 .title-icon {
-  margin-right: 8px;
-  font-size: 16px;
-}
-
-.priority-tag, .status-tag, .type-tag {
-  font-weight: 500;
-  border-radius: 12px;
-  padding: 4px 8px;
+  color: #909399;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.user-avatar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.username {
-  color: #606266;
-  font-size: 13px;
+  gap: 10px;
 }
 
 .time-info {
@@ -241,66 +129,22 @@ const getStatusTagType = (status) => {
   align-items: center;
   gap: 4px;
   color: #909399;
-  font-size: 13px;
-}
-
-.time-icon {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .actions {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.action-btn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  min-width: 60px;
+  white-space: nowrap; /* 关键：一行展示不换行 */
 }
 
 .empty-state {
-  padding: 60px 20px;
-  text-align: center;
+  padding: 24px 0;
 }
 
-/* 表格行悬停效果 */
-.custom-table :deep(.el-table__row:hover) {
-  background-color: #f8f9fa !important;
-}
-
-/* 表格边框优化 */
-.custom-table :deep(.el-table__border-left-patch) {
-  background: #f8f9fa;
-}
-
-.custom-table :deep(.el-table__fixed-right) {
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-}
-
-/* 响应式设计 */
+/* 响应式：窄屏时缩紧列宽 */
 @media (max-width: 768px) {
-  .actions {
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .action-btn {
-    width: 100%;
-    min-width: auto;
-  }
-
-  .user-info {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .username {
-    font-size: 12px;
-  }
+  .actions { gap: 2px; }
 }
 </style>
