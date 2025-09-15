@@ -53,17 +53,26 @@
 
             <div class="card-content">
               <p class="summary">{{ item.change_summary }}</p>
-              <div v-if="item.changed_fields" class="changes-block">
+              <div v-if="hasChangedFields(item)" class="changes-block">
                 <h5 class="changes-title">变更字段：</h5>
                 <div class="changes-list">
-                  <el-tag
-                    v-for="field in Object.keys(item.changed_fields)"
+                  <div
+                    v-for="(detail, field) in item.changed_fields"
                     :key="field"
-                    size="small"
-                    class="change-tag"
+                    class="change-item"
                   >
-                    {{ getFieldLabel(field) }}
-                  </el-tag>
+                    <el-tag size="small" class="change-tag">
+                      {{ getFieldLabel(field) }}
+                    </el-tag>
+                    <template v-if="detail && (detail.new !== undefined || detail.old !== undefined)">
+                      <span class="change-values">
+                        <span class="old-value">{{ formatValue(detail.old) }}</span>
+                        <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+                        <span class="new-value">{{ formatValue(detail.new) }}</span>
+                      </span>
+                    </template>
+                    <span v-else class="change-note">已修改</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -76,7 +85,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Clock } from '@element-plus/icons-vue'
+import { Clock, ArrowRight } from '@element-plus/icons-vue'
 import { testCaseService } from '@/api/testCases'
 
 const visible = ref(false)
@@ -166,6 +175,15 @@ const getActionLabel = (action) => {
 
 const getFieldLabel = (field) => {
   return fieldLabelMap[field] || field
+}
+
+const hasChangedFields = (item) => {
+  return item.changed_fields && Object.keys(item.changed_fields).length > 0
+}
+
+const formatValue = (value) => {
+  if (value === null || value === undefined) return '-'
+  return String(value)
 }
 
 defineExpose({ open })
@@ -308,6 +326,39 @@ defineExpose({ open })
 
 .change-tag {
   margin: 0;
+}
+
+.change-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.change-values {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.old-value {
+  color: #909399;
+  text-decoration: line-through;
+}
+
+.new-value {
+  color: #303133;
+  font-weight: 500;
+}
+
+.arrow-icon {
+  font-size: 12px;
+  color: #909399;
+}
+
+.change-note {
+  color: #909399;
+  font-size: 12px;
 }
 
 /* 时间轴样式优化 */
