@@ -90,17 +90,9 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="所属部门" min-width="160">
-          <template #default="{ row }">
-            {{ getDepartmentName(row) }}
-          </template>
-        </el-table-column>
+        <el-table-column prop="department_name" label="所属部门" min-width="160" />
 
-        <el-table-column label="负责人" min-width="140">
-          <template #default="{ row }">
-            {{ getOwnerName(row) }}
-          </template>
-        </el-table-column>
+        <el-table-column prop="owner_user_name" label="负责人" min-width="140" />
 
         <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
@@ -110,7 +102,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="描述" min-width="220">
+        <el-table-column prop="description" label="描述" min-width="220">
           <template #default="{ row }">
             <el-tooltip
               v-if="row.description && row.description.length > 40"
@@ -231,31 +223,12 @@ const statusOptions = computed(() => {
 
 const formatDate = (value) => (value ? formatDateTime(value) : '')
 
-const hasStatusOption = (value) => {
-  if (!value) return true
-  return (
-    PROJECT_STATUS_OPTIONS.some((item) => item.value === value) ||
-    (Array.isArray(extraStatusOptions.value) &&
-      extraStatusOptions.value.some((item) => item.value === value))
-  )
-}
-
-const ensureStatusOption = (value, label) => {
-  if (!value || hasStatusOption(value)) return
-  const option = { value, label: label || value }
-  const next = Array.isArray(extraStatusOptions.value)
-    ? [...extraStatusOptions.value, option]
-    : [option]
-  extraStatusOptions.value = next
-}
-
-const getProjectStatusValue = (project) =>
-  project?.status ?? project?.project_status ?? project?.state ?? project?.statusValue ?? ''
+const getProjectStatusValue = (project) => project?.status ?? ''
 
 const getStatusLabel = (project) =>
   resolveProjectStatusLabel(
     getProjectStatusValue(project),
-    project?.status_label ?? project?.statusLabel ?? project?.status_text ?? ''
+    project?.status_label ?? ''
   )
 
 const getStatusTagType = (project) => {
@@ -263,37 +236,19 @@ const getStatusTagType = (project) => {
   return PROJECT_STATUS_TAG_MAP[status] || 'info'
 }
 
-const getDepartmentName = (project) => {
-  const name =
-    project?.department_name ??
-    project?.departmentName ??
-    project?.department?.name ??
-    project?.department?.title ??
-    project?.department?.display_name
-  return name || '-'
-}
-
-const getOwnerName = (project) => {
-  const name =
-    project?.owner_name ??
-    project?.ownerName ??
-    project?.owner_username ??
-    project?.owner_full_name ??
-    project?.owner?.username ??
-    project?.owner?.name ??
-    project?.owner_user?.username ??
-    project?.owner_user?.name
-  return name || '-'
-}
-
-const getProjectId = (project) => project?.id ?? project?.project_id ?? null
-
-const ensureStatusOptionFromProject = (project) => {
-  const status = getProjectStatusValue(project)
-  if (!status) return
-  const label = getStatusLabel(project)
-  ensureStatusOption(status, label)
-}
+const normalizeProject = (item) => ({
+  id: item.id ?? null,
+  name: item.name || '-',
+  code: item.code || '-',
+  department_id: item.department_id ?? null,
+  department_name: item.department_name || '-',
+  owner_user_id: item.owner_user_id ?? null,
+  owner_user_name: item.owner_user_name || '-',
+  status: item.status || '',
+  description: item.description || '',
+  created_at: item.created_at || null,
+  updated_at: item.updated_at || null
+})
 
 const normalizeProjectListResponse = (data) => {
   if (Array.isArray(data)) {
@@ -332,13 +287,12 @@ const fetchProjectList = async () => {
     const params = {
       page: pagination.page,
       page_size: pagination.pageSize,
-      order: 'desc'
+      order: 'desc',
+      department_id: filters.department_id || undefined,
+      name: filters.name?.trim() || undefined,
+      code: filters.code?.trim() || undefined,
+      status: filters.status || undefined
     }
-
-    if (filters.department_id) params.department_id = filters.department_id
-    if (filters.name?.trim()) params.name = filters.name.trim()
-    if (filters.code?.trim()) params.code = filters.code.trim()
-    if (filters.status) params.status = filters.status
 
     const resp = await projectsApi.list(params)
     if (!resp?.success) {
@@ -348,12 +302,12 @@ const fetchProjectList = async () => {
     }
 
     const normalized = normalizeProjectListResponse(resp.data)
-    projectList.value = normalized.items || []
+    projectList.value = (normalized.items || []).map(normalizeProject)
     pagination.total = Number.isFinite(normalized.total)
       ? normalized.total
-      : (normalized.items || []).length
+      : projectList.value.length
 
-    updateStatusOptionsFromItems(normalized.items || [])
+    updateStatusOptionsFromItems(projectList.value)
   } catch (error) {
     console.error('获取项目列表失败:', error)
     ElMessage.error('获取项目列表失败')
@@ -367,7 +321,7 @@ const updateStatusOptionsFromItems = (items) => {
   const additions = []
   items.forEach((item) => {
     const status = getProjectStatusValue(item)
-    if (!status || hasStatusOption(status)) return
+    if (!status || PROJECT_STATUS_OPTIONS.some((opt) => opt.value === status)) return
     additions.push({ value: status, label: getStatusLabel(item) })
   })
   if (!additions.length) return
@@ -392,20 +346,10 @@ const fetchDepartmentOptions = async () => {
       departmentOptions.value = []
       return
     }
-
-    const uniqueMap = new Map()
-    items.forEach((dept) => {
-      const value = dept.id ?? dept.department_id ?? dept.dept_id ?? dept.departmentId ?? null
-      if (value === null || value === undefined) return
-      const label =
-        dept.name ??
-        dept.department_name ??
-        dept.title ??
-        dept.display_name ??
-        `部门 #${dept.id ?? dept.department_id ?? ''}`
-      uniqueMap.set(value, { value, label })
-    })
-    departmentOptions.value = Array.from(uniqueMap.values())
+    departmentOptions.value = items.map((dept) => ({
+      value: dept.id,
+      label: dept.name
+    }))
   } catch (error) {
     console.error('获取部门数据失败:', error)
   } finally {
@@ -428,20 +372,10 @@ const fetchOwnerOptions = async () => {
       ownerOptions.value = []
       return
     }
-
-    const uniqueMap = new Map()
-    items.forEach((user) => {
-      const value = user.id ?? user.user_id ?? user.userId ?? null
-      if (!value && value !== 0) return
-      const label =
-        user.username ||
-        user.name ||
-        user.full_name ||
-        user.email ||
-        `用户#${user.id ?? user.user_id ?? ''}`
-      uniqueMap.set(value, { value, label })
-    })
-    ownerOptions.value = Array.from(uniqueMap.values())
+    ownerOptions.value = items.map((user) => ({
+      value: user.id,
+      label: user.username
+    }))
   } catch (error) {
     console.error('获取用户数据失败:', error)
   } finally {
@@ -492,18 +426,17 @@ const handleAddProject = async () => {
 
 const handleEditProject = async (project) => {
   await ensureReferenceData()
-  ensureStatusOptionFromProject(project)
   projectDialogRef.value?.openEdit(project)
 }
 
 const handleDeleteProject = async (project) => {
-  const projectId = getProjectId(project)
+  const projectId = project?.id
   if (!projectId) {
     ElMessage.error('无法识别要删除的项目')
     return
   }
 
-  const projectName = project?.name ?? project?.project_name ?? `ID ${projectId}`
+  const projectName = project?.name ?? `ID ${projectId}`
 
   try {
     await ElMessageBox.confirm(
@@ -515,10 +448,7 @@ const handleDeleteProject = async (project) => {
         type: 'warning'
       }
     )
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error('删除项目操作被中断:', error)
-    }
+  } catch {
     return
   }
 
@@ -537,10 +467,7 @@ const handleDeleteProject = async (project) => {
   }
 }
 
-const handleDialogSuccess = (payload) => {
-  if (payload?.data) {
-    ensureStatusOptionFromProject(payload.data)
-  }
+const handleDialogSuccess = () => {
   fetchProjectList()
 }
 

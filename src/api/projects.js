@@ -38,7 +38,6 @@ async function handleRequest(apiFunc, args = [], defaultErrorMsg = '操作失败
 }
 
 // 基础 REST API 请求函数
-const getProjectNames = (userId) => http.get(`/get_project_names/${userId}`)
 const listProjects = (params = {}) => http.get(BASE_URL, { params })
 const getProject = (projectId) => http.get(`${BASE_URL}/${projectId}`)
 const createProject = (payload) => http.post(BASE_URL, payload)
@@ -47,11 +46,6 @@ const deleteProject = (projectId) => http.delete(`${BASE_URL}/${projectId}`)
 
 // 暴露给业务层使用的 API
 export const projectsApi = {
-  /**
-   * 保持原有用例筛选场景调用方式
-   */
-  getProjectNames,
-
   /**
    * 获取项目列表
    */
