@@ -27,6 +27,10 @@
           <el-icon><Document /></el-icon>
           <span>用例看板</span>
         </el-menu-item>
+        <el-menu-item index="/projects" class="menu-item">
+          <el-icon><FolderOpened /></el-icon>
+          <span>项目管理</span>
+        </el-menu-item>
         <el-menu-item index="/test-cases" class="menu-item">
           <el-icon><Document /></el-icon>
           <span>用例管理</span>
@@ -113,15 +117,16 @@ import { authApi } from '@/api/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ChangePasswordDialog from '@/components/Auth/ChangePasswordDialog.vue'
 import { 
-  House, 
-  Document, 
-  User, 
-  Management, 
-  Bell, 
-  ArrowDown, 
-  Setting, 
+  House,
+  Document,
+  User,
+  Management,
+  Bell,
+  ArrowDown,
+  Setting,
   SwitchButton,
-  Lock // 新增锁定图标
+  Lock, // 新增锁定图标
+  FolderOpened
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -138,6 +143,7 @@ const getBreadcrumbTitle = () => {
   const routeMap = {
     '/dashboard': '首页',
     '/plans/board': '用例看板',
+    '/projects': '项目管理',
     '/users': '用户管理',
     '/departments': '部门管理',
     '/test-cases': '用例管理',
