@@ -31,6 +31,10 @@
           <el-icon><FolderOpened /></el-icon>
           <span>项目管理</span>
         </el-menu-item>
+        <el-menu-item index="/device-models" class="menu-item">
+          <el-icon><Cpu /></el-icon>
+          <span>机型管理</span>
+        </el-menu-item>
         <el-menu-item index="/test-cases" class="menu-item">
           <el-icon><Document /></el-icon>
           <span>用例管理</span>
@@ -126,7 +130,8 @@ import {
   Setting,
   SwitchButton,
   Lock, // 新增锁定图标
-  FolderOpened
+  FolderOpened,
+  Cpu
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -144,6 +149,7 @@ const getBreadcrumbTitle = () => {
     '/dashboard': '首页',
     '/plans/board': '用例看板',
     '/projects': '项目管理',
+    '/device-models': '机型管理',
     '/users': '用户管理',
     '/departments': '部门管理',
     '/test-cases': '用例管理',
