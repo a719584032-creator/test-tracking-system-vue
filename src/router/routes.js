@@ -31,6 +31,15 @@ export const routes = [
         }
       },
       {
+        path: 'device-models',
+        name: 'DeviceModelManage',
+        component: () => import('../pages/DeviceModels/DeviceModelManagePage.vue'),
+        meta: {
+          title: '机型管理',
+          requiresAuth: true
+        }
+      },
+      {
         path: 'users',
         name: 'userManage',
         component: () => import('../pages/Users/UserManagePage.vue'),
