@@ -22,6 +22,15 @@ export const routes = [
         meta: { title: '用例看板' }
       },
       {
+        path: 'projects',
+        name: 'ProjectManage',
+        component: () => import('../pages/Projects/ProjectManagePage.vue'),
+        meta: {
+          title: '项目管理',
+          requiresAuth: true
+        }
+      },
+      {
         path: 'users',
         name: 'userManage',
         component: () => import('../pages/Users/UserManagePage.vue'),
