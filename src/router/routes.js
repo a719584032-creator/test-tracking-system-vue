@@ -16,10 +16,16 @@ export const routes = [
         component: () => import('../pages/Dashboard/DashboardPage.vue'),
       },
       {
-        path: 'plans/board',
-        name: 'planBoard',
-        component: () => import('../pages/Plans/PlanBoardPage.vue'),
-        meta: { title: '用例看板' }
+        path: 'test-plans',
+        name: 'TestPlanList',
+        component: () => import('../pages/TestPlans/TestPlanListPage.vue'),
+        meta: { title: '测试计划', requiresAuth: true }
+      },
+      {
+        path: 'test-plans/:id',
+        name: 'TestPlanDetail',
+        component: () => import('../pages/TestPlans/TestPlanDetailPage.vue'),
+        meta: { title: '测试计划详情', requiresAuth: true }
       },
       {
         path: 'projects',
