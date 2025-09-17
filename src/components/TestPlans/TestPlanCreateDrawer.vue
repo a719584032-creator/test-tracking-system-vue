@@ -705,7 +705,8 @@ const removeManualSelection = (caseId) => {
 }
 
 const handleTableSelectionChange = (rows) => {
-  if (syncingSelection.value) return
+  if (syncingSelection.value || optionsLoading.caseTable) return
+
   const selectedIds = new Set()
   rows.forEach((row) => {
     const id = Number(row.id)
@@ -713,12 +714,27 @@ const handleTableSelectionChange = (rows) => {
     selectedIds.add(id)
     addCaseToSelection(row, { manual: true })
   })
-  manualSelection.value.forEach((id) => {
-    if (!selectedIds.has(id)) {
+
+  const currentPageIds = new Set(
+    caseTable.list
+      .map((item) => Number(item.id))
+      .filter((id) => !!id)
+  )
+
+  const nextManual = new Set(manualSelection.value)
+
+  currentPageIds.forEach((id) => {
+    if (!selectedIds.has(id) && nextManual.has(id)) {
       removeManualSelection(id)
+      nextManual.delete(id)
     }
   })
-  manualSelection.value = selectedIds
+
+  selectedIds.forEach((id) => {
+    nextManual.add(id)
+  })
+
+  manualSelection.value = nextManual
 }
 
 const syncTableSelection = () => {
@@ -742,9 +758,11 @@ const syncTableSelection = () => {
 }
 
 const fetchCaseTable = async () => {
-  caseTable.list = []
-  caseTable.total = 0
-  if (!formData.department_id) return
+  if (!formData.department_id) {
+    caseTable.list = []
+    caseTable.total = 0
+    return
+  }
   optionsLoading.caseTable = true
   try {
     const params = {
