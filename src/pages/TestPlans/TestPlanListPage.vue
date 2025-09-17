@@ -8,58 +8,83 @@
 <!--    </div>-->
 
     <el-card class="filter-card" shadow="never">
-      <el-form :model="filters" inline label-width="80px">
-        <el-form-item label="所属项目">
-          <el-select
-            v-model="filters.project_id"
-            placeholder="全部项目"
-            clearable
-            filterable
-            :loading="optionsLoading.projects"
-            @focus="fetchProjectsIfNeeded"
-            style="width: 220px"
-          >
-            <el-option
-              v-for="project in projectOptions"
-              :key="project.value"
-              :label="project.label"
-              :value="project.value"
+      <div class="filter-header">
+        <el-form :model="filters" inline label-width="80px" class="filter-form">
+          <el-form-item label="所属部门">
+            <el-select
+              v-model="filters.department_id"
+              placeholder="全部部门"
+              clearable
+              filterable
+              :loading="optionsLoading.departments"
+              @focus="fetchDepartments"
+              style="width: 220px"
+            >
+              <el-option
+                v-for="dept in departmentOptions"
+                :key="dept.value"
+                :label="dept.label"
+                :value="dept.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="所属项目">
+            <el-select
+              v-model="filters.project_id"
+              placeholder="全部项目"
+              clearable
+              filterable
+              :disabled="!filters.department_id"
+              :loading="optionsLoading.projects"
+              @focus="fetchProjects"
+              style="width: 220px"
+            >
+              <el-option
+                v-for="project in projectOptions"
+                :key="project.value"
+                :label="project.label"
+                :value="project.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="计划状态">
+            <el-select
+              v-model="filters.status"
+              placeholder="全部状态"
+              clearable
+              filterable
+              style="width: 180px"
+            >
+              <el-option
+                v-for="status in statusOptions"
+                :key="status.value"
+                :label="status.label"
+                :value="status.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="关键字">
+            <el-input
+              v-model="filters.keyword"
+              placeholder="计划名称或描述"
+              clearable
+              style="width: 240px"
+              @keyup.enter="handleSearch"
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
 
-        <el-form-item label="计划状态">
-          <el-select
-            v-model="filters.status"
-            placeholder="全部状态"
-            clearable
-            filterable
-            style="width: 180px"
-          >
-            <el-option
-              v-for="status in statusOptions"
-              :key="status.value"
-              :label="status.label"
-              :value="status.value"
-            />
-          </el-select>
-        </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch">搜索</el-button>
+            <el-button @click="handleReset">重置</el-button>
+          </el-form-item>
+        </el-form>
 
-        <el-form-item label="关键字">
-          <el-input
-            v-model="filters.keyword"
-            placeholder="计划名称或描述"
-            clearable
-            style="width: 240px"
-            @keyup.enter="handleSearch"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
+        <el-button type="primary" class="create-plan-btn" @click="openCreateDrawer">
+          新建测试计划
+        </el-button>
+      </div>
     </el-card>
 
     <el-card class="table-card" shadow="never">
@@ -166,16 +191,22 @@
       :status-options="statusOptions"
       @success="refreshList"
     />
+    <TestPlanCreateDrawer
+      ref="createDrawerRef"
+      @success="handleCreateSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { testPlansApi } from '@/api/testPlans'
 import { projectsApi } from '@/api/projects'
+import { departmentService } from '@/api/departments'
 import TestPlanEditDialog from '@/components/TestPlans/TestPlanEditDialog.vue'
+import TestPlanCreateDrawer from '@/components/TestPlans/TestPlanCreateDrawer.vue'
 import { formatDateTime } from '@/utils/format'
 import {
   TEST_PLAN_STATUS_OPTIONS,
@@ -186,6 +217,7 @@ import {
 const router = useRouter()
 
 const filters = reactive({
+  department_id: null,
   project_id: null,
   status: '',
   keyword: ''
@@ -200,14 +232,17 @@ const pagination = reactive({
 const loading = ref(false)
 const planList = ref([])
 
+const departmentOptions = ref([])
 const projectOptions = ref([])
 const optionsLoading = reactive({
+  departments: false,
   projects: false
 })
 
 const statusOptions = TEST_PLAN_STATUS_OPTIONS
 
 const editDialogRef = ref()
+const createDrawerRef = ref()
 
 const formatDate = (value) => {
   if (!value) return ''
@@ -218,6 +253,7 @@ const fetchPlans = async () => {
   loading.value = true
   try {
     const params = {
+      department_id: filters.department_id,
       project_id: filters.project_id,
       status: filters.status,
       keyword: filters.keyword,
@@ -237,21 +273,54 @@ const fetchPlans = async () => {
   }
 }
 
-const fetchProjectsIfNeeded = async () => {
-  if (projectOptions.value.length || optionsLoading.projects) return
-  optionsLoading.projects = true
+const fetchDepartments = async () => {
+  if (departmentOptions.value.length || optionsLoading.departments) return
+  optionsLoading.departments = true
   try {
-    const response = await projectsApi.list({ page: 1, page_size: 1000 })
+    const response = await departmentService.list({ page: 1, page_size: 1000 })
     if (!response?.success) return
     const items = response.data?.items || response.data?.list || []
-    projectOptions.value = items.map((item) => ({
-      value: item.id,
-      label: item.name
+    departmentOptions.value = items.map((item) => ({
+      value: Number(item.id),
+      label: item.name || item.label || `部门#${item.id}`
     }))
+  } catch (error) {
+    console.error('获取部门列表失败:', error)
+  } finally {
+    optionsLoading.departments = false
+  }
+}
+
+let projectFetchToken = 0
+
+const fetchProjects = async () => {
+  const token = ++projectFetchToken
+  optionsLoading.projects = true
+  try {
+    const params = { page: 1, page_size: 1000 }
+    if (filters.department_id) {
+      params.department_id = filters.department_id
+    }
+    const response = await projectsApi.list(params)
+    if (!response?.success) return
+    const items = response.data?.items || response.data?.list || []
+    if (token !== projectFetchToken) return
+    projectOptions.value = items.map((item) => ({
+      value: Number(item.id),
+      label: item.name || item.label || `项目#${item.id}`
+    }))
+    if (filters.project_id) {
+      const exists = projectOptions.value.some((item) => item.value === filters.project_id)
+      if (!exists) {
+        filters.project_id = null
+      }
+    }
   } catch (error) {
     console.error('获取项目列表失败:', error)
   } finally {
-    optionsLoading.projects = false
+    if (token === projectFetchToken) {
+      optionsLoading.projects = false
+    }
   }
 }
 
@@ -262,6 +331,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   Object.assign(filters, {
+    department_id: null,
     project_id: null,
     status: '',
     keyword: ''
@@ -287,7 +357,7 @@ const handleEdit = async (row) => {
     return
   }
   if (!projectOptions.value.length) {
-    await fetchProjectsIfNeeded()
+    await fetchProjects()
   }
   editDialogRef.value?.open(row)
 }
@@ -301,12 +371,36 @@ const refreshList = () => {
   fetchPlans()
 }
 
+const openCreateDrawer = async () => {
+  if (!departmentOptions.value.length) {
+    await fetchDepartments()
+  }
+  createDrawerRef.value?.open({
+    departmentId: filters.department_id,
+    projectId: filters.project_id
+  })
+}
+
+const handleCreateSuccess = () => {
+  fetchPlans()
+}
+
 const resolveStatusTag = (status) => TEST_PLAN_STATUS_TAG_MAP[status] || 'info'
 const resolveStatusLabel = (status) => resolvePlanStatusLabel(status)
 
+watch(
+  () => filters.department_id,
+  () => {
+    projectOptions.value = []
+    filters.project_id = null
+    fetchProjects()
+  }
+)
+
 onMounted(() => {
+  fetchDepartments()
+  fetchProjects()
   fetchPlans()
-  fetchProjectsIfNeeded()
 })
 </script>
 
@@ -331,6 +425,21 @@ onMounted(() => {
 .filter-card,
 .table-card {
   border-radius: 12px;
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.filter-form {
+  flex: 1;
+}
+
+.create-plan-btn {
+  align-self: flex-start;
 }
 
 .plan-name {
