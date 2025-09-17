@@ -56,8 +56,9 @@
           <el-form-item label="状态">
             <el-select
               v-model="filters.active"
-              placeholder="全部状态"
+              placeholder="请选择状态"
               clearable
+              style="width: 140px"
             >
               <el-option
                 v-for="option in activeOptions"
@@ -125,11 +126,14 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" width="120" align="center">
+        <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getActiveTagType(row)" disable-transitions>
-              {{ getActiveLabel(row) }}
-            </el-tag>
+            <el-switch
+              v-model="row.active"
+              :loading="row._switching"
+              size="small"
+              @change="handleToggleActive(row)"
+            />
           </template>
         </el-table-column>
 
@@ -174,18 +178,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="220" fixed="right" align="center">
+        <el-table-column label="操作" width="120" fixed="right" align="center">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEditDeviceModel(row)">
               编辑
-            </el-button>
-            <el-button
-              :type="row.active ? 'warning' : 'success'"
-              size="small"
-              plain
-              @click="handleToggleActive(row)"
-            >
-              {{ row.active ? '停用' : '启用' }}
             </el-button>
           </template>
         </el-table-column>
@@ -230,7 +226,7 @@ const filters = reactive({
   name: '',
   model_code: '',
   category: '',
-  active: 'true'
+  active: ''  // 修改默认值为空字符串，显示"全部状态"
 })
 
 const pagination = reactive({
@@ -244,6 +240,7 @@ const optionsLoading = reactive({
   departments: false
 })
 
+// 修改状态选项，使用字符串值
 const activeOptions = [
   { label: '全部状态', value: '' },
   { label: '启用', value: 'true' },
@@ -253,9 +250,6 @@ const activeOptions = [
 const deviceModelDialogRef = ref()
 
 const formatDate = (value) => (value ? formatDateTime(value) : '')
-
-const getActiveTagType = (model) => (model?.active ? 'success' : 'info')
-const getActiveLabel = (model) => (model?.active ? '已启用' : '已停用')
 
 const stringifyAttributes = (attributes) => {
   if (!attributes) return ''
@@ -269,58 +263,11 @@ const stringifyAttributes = (attributes) => {
   }
 }
 
-const getAttributeFullText = (model) => stringifyAttributes(model?.attributes_json)
+const getAttributeFullText = (model) => stringifyAttributes(model.attributes_json)
 const getAttributePreview = (model) => {
   const text = getAttributeFullText(model)
   if (!text) return '-'
   return text.length > 50 ? `${text.slice(0, 50)}...` : text
-}
-
-const normalizeDeviceModel = (item) => ({
-  id: item.id ?? null,
-  name: item.name ?? item.model_name ?? '',
-  model_code: item.model_code ?? item.code ?? '',
-  department_id: item.department_id ?? item.departmentId ?? null,
-  department_name: item.department_name ?? item.departmentName ?? '',
-  category: item.category ?? '',
-  vendor: item.vendor ?? '',
-  firmware_version: item.firmware_version ?? item.firmwareVersion ?? '',
-  description: item.description ?? '',
-  attributes_json: item.attributes_json ?? item.attributes ?? null,
-  active: item.active === undefined ? true : Boolean(item.active),
-  created_at: item.created_at ?? null,
-  updated_at: item.updated_at ?? null
-})
-
-const normalizeDeviceModelListResponse = (data) => {
-  if (Array.isArray(data)) {
-    return { items: data, total: data.length }
-  }
-  if (!data || typeof data !== 'object') {
-    return { items: [], total: 0 }
-  }
-  if (Array.isArray(data.items)) {
-    return {
-      items: data.items,
-      total: Number.isFinite(data.total) ? data.total : data.items.length
-    }
-  }
-  if (Array.isArray(data.list)) {
-    return {
-      items: data.list,
-      total: Number.isFinite(data.total) ? data.total : data.list.length
-    }
-  }
-  if (Array.isArray(data.device_models)) {
-    return {
-      items: data.device_models,
-      total: Number.isFinite(data.total) ? data.total : data.device_models.length
-    }
-  }
-  return {
-    items: [],
-    total: Number.isFinite(data.total) ? data.total : 0
-  }
 }
 
 const fetchDeviceModelList = async () => {
@@ -342,48 +289,57 @@ const fetchDeviceModelList = async () => {
       category: filters.category?.trim() || undefined
     }
 
+    // 修复状态筛选逻辑
     if (filters.active === 'true') {
       params.active = true
     } else if (filters.active === 'false') {
       params.active = false
     }
+    // 当 filters.active === '' 时，不传 active 参数，获取所有状态
 
     const resp = await deviceModelsApi.list(params)
-    if (!resp?.success) {
+    if (resp.code === 200) {
+      // 添加部门名称映射
+      const items = resp.data.items.map(item => ({
+        ...item,
+        _switching: false, // 添加切换状态标识
+        department_name: getDepartmentName(item.department_id)
+      }))
+
+      deviceModelList.value = items
+      pagination.total = resp.data.total || items.length
+    } else {
       deviceModelList.value = []
       pagination.total = 0
-      return
     }
-
-    const normalized = normalizeDeviceModelListResponse(resp.data)
-    deviceModelList.value = (normalized.items || []).map(normalizeDeviceModel)
-    pagination.total = Number.isFinite(normalized.total)
-      ? normalized.total
-      : deviceModelList.value.length
   } catch (error) {
     console.error('获取机型列表失败:', error)
     ElMessage.error('获取机型列表失败')
+    deviceModelList.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }
+}
+
+const getDepartmentName = (departmentId) => {
+  const dept = departmentOptions.value.find(d => d.value === departmentId)
+  return dept ? dept.label : ''
 }
 
 const fetchDepartmentOptions = async () => {
   optionsLoading.departments = true
   try {
     const resp = await departmentService.list({ page: 1, page_size: 1000 })
-    if (!resp?.success) return
-    const items = resp.data?.items || resp.data?.list || []
-    if (!Array.isArray(items)) {
-      departmentOptions.value = []
-      return
-    }
-    departmentOptions.value = items.map((dept) => ({
-      value: dept.id,
-      label: dept.name
-    }))
-    if (!filters.department_id && departmentOptions.value.length) {
-      filters.department_id = departmentOptions.value[0].value
+    if (resp.code === 200) {
+      const items = resp.data.items || []
+      departmentOptions.value = items.map((dept) => ({
+        value: dept.id,
+        label: dept.name
+      }))
+      if (!filters.department_id && departmentOptions.value.length) {
+        filters.department_id = departmentOptions.value[0].value
+      }
     }
   } catch (error) {
     console.error('获取部门数据失败:', error)
@@ -422,7 +378,7 @@ const handleReset = () => {
   filters.name = ''
   filters.model_code = ''
   filters.category = ''
-  filters.active = 'true'
+  filters.active = ''  // 重置为空字符串
   filters.department_id = departmentId
   pagination.page = 1
   fetchDeviceModelList()
@@ -449,54 +405,65 @@ const handleAddDeviceModel = async () => {
 }
 
 const handleEditDeviceModel = async (model) => {
-  const id = model?.id
-  if (!id) {
-    ElMessage.error('无法识别要编辑的机型')
-    return
-  }
   await fetchDepartmentOptionsIfNeeded()
-  let detail = model
+
   try {
-    const resp = await deviceModelsApi.get(id)
-    if (resp?.success && resp.data) {
-      detail = normalizeDeviceModel(resp.data)
+    const resp = await deviceModelsApi.get(model.id)
+    if (resp.code === 200) {
+      deviceModelDialogRef.value?.openEdit(resp.data)
+    } else {
+      ElMessage.error('获取机型详情失败')
     }
   } catch (error) {
     console.error('获取机型详情失败:', error)
+    ElMessage.error('获取机型详情失败')
   }
-  deviceModelDialogRef.value?.openEdit(detail)
 }
 
 const handleToggleActive = async (model) => {
-  const id = model?.id
-  if (!id) {
-    ElMessage.error('无法识别要操作的机型')
-    return
-  }
-
-  const enable = !model.active
-  const actionText = enable ? '启用' : '停用'
-  const name = model?.name ?? `ID ${id}`
+  const newStatus = model.active
+  const actionText = newStatus ? '启用' : '停用'
 
   try {
     await ElMessageBox.confirm(
-      `确定要${actionText}机型 “${name}” 吗？`,
+      `确定要${actionText}机型 "${model.name}" 吗？`,
       `${actionText}确认`,
       {
         confirmButtonText: actionText,
         cancelButtonText: '取消',
-        type: enable ? 'info' : 'warning'
+        type: newStatus ? 'info' : 'warning'
       }
     )
   } catch {
+    // 用户取消，恢复开关状态
+    model.active = !newStatus
     return
   }
 
-  const resp = enable ? await deviceModelsApi.enable(id) : await deviceModelsApi.disable(id)
-  if (!resp?.success) return
+  // 设置加载状态
+  model._switching = true
 
-  ElMessage.success(`机型${actionText}成功`)
-  fetchDeviceModelList()
+  try {
+    const resp = newStatus
+      ? await deviceModelsApi.enable(model.id)
+      : await deviceModelsApi.disable(model.id)
+
+    if (resp.code === 200) {
+      ElMessage.success(`机型${actionText}成功`)
+      // 保持当前状态，不需要重新获取列表
+    } else {
+      // 操作失败，恢复开关状态
+      model.active = !newStatus
+      ElMessage.error(`机型${actionText}失败`)
+    }
+  } catch (error) {
+    console.error(`机型${actionText}失败:`, error)
+    // 操作失败，恢复开关状态
+    model.active = !newStatus
+    ElMessage.error(`机型${actionText}失败`)
+  } finally {
+    model._switching = false
+  }
 }
 
 const handleDialogSuccess = () => {
