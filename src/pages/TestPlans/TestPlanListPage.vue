@@ -167,7 +167,23 @@
 
         <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-tooltip
+              v-if="isPlanArchived(row)"
+              content="已归档的计划不可编辑"
+              placement="top"
+            >
+              <span class="disabled-tooltip-wrapper">
+                <el-button type="primary" size="small" disabled>编辑</el-button>
+              </span>
+            </el-tooltip>
+            <el-button
+              v-else
+              type="primary"
+              size="small"
+              @click="handleEdit(row)"
+            >
+              编辑
+            </el-button>
             <el-button type="info" size="small" plain @click="viewDetail(row)">详情</el-button>
           </template>
         </el-table-column>
@@ -356,6 +372,10 @@ const handleEdit = async (row) => {
     ElMessage.warning('无法识别该测试计划')
     return
   }
+  if (isPlanArchived(row)) {
+    ElMessage.info('已归档的测试计划不可编辑')
+    return
+  }
   if (!projectOptions.value.length) {
     await fetchProjects()
   }
@@ -387,6 +407,8 @@ const handleCreateSuccess = () => {
 
 const resolveStatusTag = (status) => TEST_PLAN_STATUS_TAG_MAP[status] || 'info'
 const resolveStatusLabel = (status) => resolvePlanStatusLabel(status)
+
+const isPlanArchived = (plan) => plan?.status === 'archived'
 
 watch(
   () => filters.department_id,
@@ -472,5 +494,13 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+
+.disabled-tooltip-wrapper {
+  display: inline-block;
+}
+
+.disabled-tooltip-wrapper .el-button {
+  pointer-events: none;
 }
 </style>
