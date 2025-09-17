@@ -126,7 +126,8 @@
                 multiple
                 collapse-tags
                 collapse-tags-tooltip
-                placeholder="请选择测试机型"
+                placeholder="请先选择部门"
+                :disabled="!formData.department_id"
                 :loading="optionsLoading.deviceModels"
                 filterable
               >
@@ -173,7 +174,7 @@
                 highlight-current
                 :expand-on-click-node="false"
                 class="group-tree"
-                @check-change="handleGroupCheck"
+                @check="handleGroupCheck"
               >
                 <template #default="{ node }">
                   <span class="tree-node-label" :title="node.label">{{ node.label }}</span>
@@ -299,8 +300,6 @@
                 <template #default="{ row }">
                   <el-switch
                     v-model="row.compatibility"
-                    active-text="做兼容"
-                    inactive-text="不兼容"
                   />
                 </template>
               </el-table-column>
@@ -465,6 +464,7 @@ const resetState = () => {
 
   projectOptions.value = []
   testerOptions.value = []
+  deviceOptions.value = []
   caseGroupTree.value = []
   checkedGroupIds.value = []
   groupNameMap.clear()
@@ -509,11 +509,13 @@ const fetchDepartments = async () => {
   }
 }
 
-const fetchDeviceModels = async () => {
-  if (deviceOptions.value.length || optionsLoading.deviceModels) return
+const fetchDeviceModelsByDepartment = async (departmentId) => {
+  deviceOptions.value = []
+  if (!departmentId) return
   optionsLoading.deviceModels = true
   try {
-    const resp = await deviceModelsApi.list({ page: 1, page_size: 1000 })
+    const params = { page: 1, page_size: 1000, department_id: departmentId }
+    const resp = await deviceModelsApi.list(params)
     if (resp.success) {
       const items = resp.data?.items || resp.data?.list || []
       deviceOptions.value = items.map((item) => ({
@@ -703,7 +705,8 @@ const removeManualSelection = (caseId) => {
 }
 
 const handleTableSelectionChange = (rows) => {
-  if (syncingSelection.value) return
+  if (syncingSelection.value || optionsLoading.caseTable) return
+
   const selectedIds = new Set()
   rows.forEach((row) => {
     const id = Number(row.id)
@@ -711,12 +714,27 @@ const handleTableSelectionChange = (rows) => {
     selectedIds.add(id)
     addCaseToSelection(row, { manual: true })
   })
-  manualSelection.value.forEach((id) => {
-    if (!selectedIds.has(id)) {
+
+  const currentPageIds = new Set(
+    caseTable.list
+      .map((item) => Number(item.id))
+      .filter((id) => !!id)
+  )
+
+  const nextManual = new Set(manualSelection.value)
+
+  currentPageIds.forEach((id) => {
+    if (!selectedIds.has(id) && nextManual.has(id)) {
       removeManualSelection(id)
+      nextManual.delete(id)
     }
   })
-  manualSelection.value = selectedIds
+
+  selectedIds.forEach((id) => {
+    nextManual.add(id)
+  })
+
+  manualSelection.value = nextManual
 }
 
 const syncTableSelection = () => {
@@ -740,9 +758,11 @@ const syncTableSelection = () => {
 }
 
 const fetchCaseTable = async () => {
-  caseTable.list = []
-  caseTable.total = 0
-  if (!formData.department_id) return
+  if (!formData.department_id) {
+    caseTable.list = []
+    caseTable.total = 0
+    return
+  }
   optionsLoading.caseTable = true
   try {
     const params = {
@@ -791,6 +811,7 @@ const onDepartmentChange = async (departmentId) => {
   formData.department_id = deptId
   formData.project_id = null
   formData.tester_user_ids = []
+  formData.device_model_ids = []
   checkedGroupIds.value = []
   groupCaseMap.clear()
   selectedCasesMap.clear()
@@ -798,11 +819,13 @@ const onDepartmentChange = async (departmentId) => {
   caseTable.page = 1
   caseTable.keyword = ''
   caseTable.group_id = null
+  deviceOptions.value = []
 
   await Promise.all([
     fetchProjectsByDepartment(deptId),
     fetchTesters(deptId),
-    fetchCaseGroups(deptId)
+    fetchCaseGroups(deptId),
+    fetchDeviceModelsByDepartment(deptId)
   ])
   await fetchCaseTable()
   syncTableSelection()
@@ -871,7 +894,7 @@ const open = async ({ departmentId, projectId } = {}) => {
   visible.value = true
   await nextTick()
   formRef.value?.clearValidate()
-  await Promise.all([fetchDepartments(), fetchDeviceModels()])
+  await fetchDepartments()
   if (departmentId) {
     await onDepartmentChange(departmentId)
     if (projectId) {
