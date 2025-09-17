@@ -137,9 +137,9 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="executed_by" label="执行人" min-width="140">
+        <el-table-column prop="executed_by" label="执行人" min-width="160">
           <template #default="{ row }">
-            {{ resolveExecutor(row.executed_by) }}
+            {{ row.executed_by_name || resolveUserName(row.executed_by) }}
           </template>
         </el-table-column>
 
@@ -184,21 +184,18 @@ const planDetail = ref(null)
 
 const resultDialogRef = ref()
 
+/** 将 user_id -> 显示名 做一个映射，方便回退展示执行人 */
 const testerMap = computed(() => {
   const map = new Map()
   const testers = planDetail.value?.testers || []
   testers.forEach((item) => {
     const id = item.user_id || item.tester?.id
-    const name = item.tester?.username || item.username || item.tester_name
-    if (id) {
-      map.set(Number(id), name || `用户#${id}`)
-    }
+    const name = item.tester?.username || item.username || item.name || item.tester_name
+    if (id) map.set(Number(id), name || `用户#${id}`)
   })
   if (planDetail.value?.created_by) {
     const id = Number(planDetail.value.created_by)
-    if (!map.has(id)) {
-      map.set(id, planDetail.value.created_by_name || `用户#${id}`)
-    }
+    if (!map.has(id)) map.set(id, planDetail.value.created_by_name || `用户#${id}`)
   }
   return map
 })
@@ -207,7 +204,7 @@ const testerNames = computed(() => {
   const testers = planDetail.value?.testers || []
   if (!testers.length) return '-'
   return testers
-    .map((item) => item.tester?.username || item.username || item.tester_name || `用户#${item.user_id}`)
+    .map((item) => item.tester?.username || item.username || item.name || item.tester_name || `用户#${item.user_id}`)
     .join('、')
 })
 
@@ -215,16 +212,18 @@ const deviceNames = computed(() => {
   const devices = planDetail.value?.device_models || []
   if (!devices.length) return '-'
   return devices
-    .map((item) => item.device_model?.name || item.device_model_name || `机型#${item.device_model_id}`)
+    .map((item) => item.device_model?.name || item.name || item.device_model_name || `机型#${item.device_model_id}`)
     .join('、')
 })
 
+/** 展平 cases -> execution_results 为表格行 */
 const executionRows = computed(() => {
   const plan = planDetail.value
   if (!plan?.cases) return []
   const rows = []
   plan.cases.forEach((caseItem) => {
     const executions = Array.isArray(caseItem.execution_results) ? caseItem.execution_results : []
+    // 没有执行结果时，按用例一行，显示 latest_result
     if (!executions.length) {
       rows.push({
         case_id: caseItem.case_id,
@@ -234,10 +233,12 @@ const executionRows = computed(() => {
         plan_case_id: caseItem.id,
         result: caseItem.latest_result,
         executed_at: null,
-        executed_by: null
+        executed_by: null,
+        executed_by_name: null
       })
       return
     }
+    // 有执行结果则每条执行结果一行
     executions.forEach((exec) => {
       rows.push({
         case_id: caseItem.case_id,
@@ -247,12 +248,13 @@ const executionRows = computed(() => {
         plan_case_id: exec.plan_case_id || caseItem.id,
         plan_case_internal_id: caseItem.id,
         device_model_id: exec.device_model_id,
-        device_model_name: exec.device_model?.name || exec.device_model_name,
-        device_model_code: exec.device_model?.model_code || exec.device_model_code,
+        device_model_name: exec.device_model?.name || exec.device_model?.device_model?.name || exec.device_model_name,
+        device_model_code: exec.device_model?.model_code || exec.device_model?.device_model?.model_code || exec.device_model_code,
         plan_device_model_id: exec.plan_device_model_id,
         result: exec.result,
         executed_at: exec.executed_at,
         executed_by: exec.executed_by,
+        executed_by_name: exec.executed_by_name,
         remark: exec.remark,
         failure_reason: exec.failure_reason,
         bug_ref: exec.bug_ref,
@@ -269,12 +271,9 @@ const statusLabel = computed(() => resolvePlanStatusLabel(planDetail.value?.stat
 
 const resolveResultTag = (result) => EXECUTION_RESULT_TAG_MAP[result] || 'info'
 
-const formatDate = (value) => {
-  if (!value) return '-'
-  return String(value).slice(0, 10)
-}
+const formatDate = (value) => (value ? String(value).slice(0, 10) : '-')
 
-const resolveExecutor = (userId) => {
+const resolveUserName = (userId) => {
   if (!userId) return '-'
   const name = testerMap.value.get(Number(userId))
   return name || `用户#${userId}`
@@ -289,7 +288,7 @@ const fetchDetail = async () => {
   loading.value = true
   try {
     const response = await testPlansApi.get(planId.value)
-    if (!response?.success) {
+    if (!(response && response.code === 200)) {
       ElMessage.error(response?.message || '获取测试计划失败')
       return
     }
