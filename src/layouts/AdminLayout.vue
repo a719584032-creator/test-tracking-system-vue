@@ -23,9 +23,9 @@
           <el-icon><House /></el-icon>
           <span>首页</span>
         </el-menu-item>
-        <el-menu-item index="/plans/board" class="menu-item">
+        <el-menu-item index="/test-plans" class="menu-item">
           <el-icon><Document /></el-icon>
-          <span>用例看板</span>
+          <span>测试计划</span>
         </el-menu-item>
         <el-menu-item index="/projects" class="menu-item">
           <el-icon><FolderOpened /></el-icon>
@@ -147,7 +147,7 @@ const activeMenu = computed(() => route.path)
 const getBreadcrumbTitle = () => {
   const routeMap = {
     '/dashboard': '首页',
-    '/plans/board': '用例看板',
+    '/test-plans': '测试计划',
     '/projects': '项目管理',
     '/device-models': '机型管理',
     '/users': '用户管理',
@@ -156,6 +156,10 @@ const getBreadcrumbTitle = () => {
   }
 
   // 动态详情：/test-cases/:id （id 为数字）
+  if (/^\/test-plans\/\d+$/.test(route.path)) {
+    return '测试计划详情'
+  }
+
   if (/^\/test-cases\/\d+$/.test(route.path)) {
     return '用例详情'
   }
