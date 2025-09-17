@@ -12,8 +12,12 @@
       :rules="rules"
       label-width="100px"
     >
+      <el-form-item label="所属部门">
+        <el-input v-model="formData.department_name" disabled placeholder="-" />
+      </el-form-item>
+
       <el-form-item label="所属项目">
-        <el-input v-model="formData.project_name" disabled />
+        <el-input v-model="formData.project_name" disabled placeholder="-" />
       </el-form-item>
 
       <el-form-item label="计划名称" prop="name">
@@ -61,6 +65,26 @@
         />
       </el-form-item>
 
+      <el-form-item label="测试人员" prop="tester_user_ids">
+        <el-select
+          v-model="formData.tester_user_ids"
+          multiple
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="请选择测试人员"
+          :disabled="formData.department_id === null"
+          :loading="optionsLoading.testers"
+          filterable
+        >
+          <el-option
+            v-for="user in testerOptions"
+            :key="user.value"
+            :label="user.label"
+            :value="user.value"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="计划描述">
         <el-input
           v-model="formData.description"
@@ -88,6 +112,7 @@
 import { computed, nextTick, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { testPlansApi } from '@/api/testPlans'
+import { departmentService } from '@/api/departments'
 
 const props = defineProps({
   statusOptions: {
@@ -104,12 +129,15 @@ const formRef = ref()
 
 const formData = reactive({
   id: null,
-  project_name: '',
+  department_id: null,
+  department_name: '-',
+  project_name: '-',
   name: '',
   status: '',
   start_date: '',
   end_date: '',
-  description: ''
+  description: '',
+  tester_user_ids: []
 })
 
 const rules = {
@@ -119,6 +147,9 @@ const rules = {
   ],
   status: [
     { required: true, message: '请选择计划状态', trigger: 'change' }
+  ],
+  tester_user_ids: [
+    { type: 'array', required: true, message: '请选择测试人员', trigger: 'change' }
   ]
 }
 
@@ -130,33 +161,150 @@ const mergedStatusOptions = computed(() => {
   return base
 })
 
+const testerOptions = ref([])
+
+const optionsLoading = reactive({
+  testers: false
+})
+
 const dialogTitle = computed(() => '编辑测试计划')
 
 const resetForm = () => {
   Object.assign(formData, {
     id: null,
-    project_name: '',
+    department_id: null,
+    department_name: '-',
+    project_name: '-',
     name: '',
     status: '',
     start_date: '',
     end_date: '',
-    description: ''
+    description: '',
+    tester_user_ids: []
   })
+  testerOptions.value = []
   formRef.value?.clearValidate()
+}
+
+const buildTesterOption = (tester) => {
+  if (!tester) return null
+  const rawId =
+    tester.user_id ||
+    tester.userId ||
+    tester.tester_id ||
+    tester.tester?.id ||
+    tester.id
+  if (rawId === undefined || rawId === null || rawId === '') return null
+  const userId = Number(rawId)
+  if (Number.isNaN(userId)) return null
+  const label =
+    tester.tester?.username ||
+    tester.username ||
+    tester.name ||
+    tester.tester_name ||
+    `用户#${userId}`
+  return { value: userId, label }
+}
+
+const mergeTesterOptions = (options = []) => {
+  const map = new Map()
+  const existing = Array.isArray(testerOptions.value) ? testerOptions.value : []
+  existing.forEach((item) => {
+    if (!item || item.value === undefined || item.value === null) return
+    const value = Number(item.value)
+    if (Number.isNaN(value)) return
+    map.set(value, item.label || `用户#${value}`)
+  })
+  options.forEach((item) => {
+    if (!item || item.value === undefined || item.value === null) return
+    const value = Number(item.value)
+    if (Number.isNaN(value)) return
+    if (!map.has(value)) {
+      map.set(value, item.label || `用户#${value}`)
+    }
+  })
+  testerOptions.value = Array.from(map.entries()).map(([value, label]) => ({
+    value,
+    label
+  }))
+}
+
+const fetchTesterOptions = async (departmentId) => {
+  if (departmentId === null || departmentId === undefined) return
+  optionsLoading.testers = true
+  try {
+    const response = await departmentService.listMembers(departmentId, { page: 1, page_size: 1000 })
+    if (!response?.success) return
+    const items = response.data?.items || response.data?.list || []
+    const options = items
+      .map((member) => {
+        if (!member) return null
+        const rawId =
+          member.user_id ||
+          member.userId ||
+          member.id ||
+          member.user?.id
+        if (rawId === undefined || rawId === null || rawId === '') return null
+        const userId = Number(rawId)
+        if (Number.isNaN(userId)) return null
+        const user = member.user || {}
+        const label =
+          member.username ||
+          member.name ||
+          user.username ||
+          user.name ||
+          `用户#${userId}`
+        return { value: userId, label }
+      })
+      .filter(Boolean)
+    mergeTesterOptions(options)
+  } catch (error) {
+    console.error('获取测试人员失败:', error)
+  } finally {
+    optionsLoading.testers = false
+  }
 }
 
 const open = (plan) => {
   resetForm()
   if (plan) {
+    const rawDepartmentId = Number(
+      plan.department_id ||
+        plan.departmentId ||
+        plan.project?.department_id ||
+        plan.project?.departmentId ||
+        plan.project?.department?.id ||
+        plan.department?.id
+    )
+    const departmentId = Number.isNaN(rawDepartmentId) ? null : rawDepartmentId
+    const departmentName =
+      plan.department_name ||
+      plan.departmentName ||
+      plan.department?.name ||
+      plan.project?.department?.name ||
+      '-'
+    const projectName = plan.project_name || plan.projectName || plan.project?.name || '-'
+    const testers = Array.isArray(plan.testers) ? plan.testers : []
+    const initialTesterOptions = testers
+      .map((tester) => buildTesterOption(tester))
+      .filter(Boolean)
+    const testerIds = initialTesterOptions.map((item) => item.value)
     Object.assign(formData, {
       id: plan.id,
-      project_name: plan.project_name || '',
+      department_id: departmentId,
+      department_name: departmentName,
+      project_name: projectName,
       name: plan.name || '',
       status: plan.status || '',
       start_date: plan.start_date || '',
       end_date: plan.end_date || '',
-      description: plan.description || ''
+      description: plan.description || '',
+      tester_user_ids: testerIds
     })
+    mergeTesterOptions(initialTesterOptions)
+    if (departmentId !== null) {
+      fetchTesterOptions(departmentId)
+    }
   }
   visible.value = true
   nextTick(() => formRef.value?.clearValidate())
@@ -172,7 +320,8 @@ const handleSubmit = () => {
         description: formData.description || undefined,
         status: formData.status,
         start_date: formData.start_date || null,
-        end_date: formData.end_date || null
+        end_date: formData.end_date || null,
+        tester_user_ids: formData.tester_user_ids
       }
       const response = await testPlansApi.update(formData.id, payload)
       if (response?.success) {
