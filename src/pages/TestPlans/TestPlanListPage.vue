@@ -164,31 +164,28 @@
             {{ formatDateTime(row.updated_at) || '-' }}
           </template>
         </el-table-column>
-
         <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <div class="plan-actions">
               <el-tooltip
-                v-if="isPlanArchived(row)"
-                content="已归档的计划不可编辑"
+                :content="isPlanArchived(row) ? '已归档的计划不可编辑' : ''"
                 placement="top"
+                :disabled="!isPlanArchived(row)"
               >
-                <span class="disabled-tooltip-wrapper">
-                  <el-button type="primary" size="small" disabled>编辑</el-button>
-                </span>
+                <el-button
+                  type="primary"
+                  size="small"
+                  :disabled="isPlanArchived(row)"
+                  @click="handleEdit(row)"
+                >
+                  编辑
+                </el-button>
               </el-tooltip>
-              <el-button
-                v-else
-                type="primary"
-                size="small"
-                @click="handleEdit(row)"
-              >
-                编辑
-              </el-button>
               <el-button type="info" size="small" plain @click="viewDetail(row)">详情</el-button>
             </div>
           </template>
         </el-table-column>
+
       </el-table>
 
       <div class="pagination-wrapper">
