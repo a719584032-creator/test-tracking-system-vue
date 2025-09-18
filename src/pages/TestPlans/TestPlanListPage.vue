@@ -499,7 +499,6 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: 16px;
 }
-
 .plan-actions {
   display: inline-flex;
   align-items: center;
