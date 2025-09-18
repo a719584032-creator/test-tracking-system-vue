@@ -165,26 +165,28 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
-            <el-tooltip
-              v-if="isPlanArchived(row)"
-              content="已归档的计划不可编辑"
-              placement="top"
-            >
-              <span class="disabled-tooltip-wrapper">
-                <el-button type="primary" size="small" disabled>编辑</el-button>
-              </span>
-            </el-tooltip>
-            <el-button
-              v-else
-              type="primary"
-              size="small"
-              @click="handleEdit(row)"
-            >
-              编辑
-            </el-button>
-            <el-button type="info" size="small" plain @click="viewDetail(row)">详情</el-button>
+            <div class="plan-actions">
+              <el-tooltip
+                v-if="isPlanArchived(row)"
+                content="已归档的计划不可编辑"
+                placement="top"
+              >
+                <span class="disabled-tooltip-wrapper">
+                  <el-button type="primary" size="small" disabled>编辑</el-button>
+                </span>
+              </el-tooltip>
+              <el-button
+                v-else
+                type="primary"
+                size="small"
+                @click="handleEdit(row)"
+              >
+                编辑
+              </el-button>
+              <el-button type="info" size="small" plain @click="viewDetail(row)">详情</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -376,10 +378,12 @@ const handleEdit = async (row) => {
     ElMessage.info('已归档的测试计划不可编辑')
     return
   }
-  if (!projectOptions.value.length) {
-    await fetchProjects()
+  const { success, data } = await testPlansApi.get(row.id)
+  if (!success) {
+    return
   }
-  editDialogRef.value?.open(row)
+  const planData = { ...row, ...(data || {}) }
+  editDialogRef.value?.open(planData)
 }
 
 const viewDetail = (row) => {
@@ -495,9 +499,14 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: 16px;
 }
+.plan-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .disabled-tooltip-wrapper {
-  display: inline-block;
+  display: inline-flex;
 }
 
 .disabled-tooltip-wrapper .el-button {

@@ -12,8 +12,12 @@
       :rules="rules"
       label-width="100px"
     >
+      <el-form-item label="所属部门">
+        <el-input v-model="formData.department_name" disabled placeholder="-" />
+      </el-form-item>
+
       <el-form-item label="所属项目">
-        <el-input v-model="formData.project_name" disabled />
+        <el-input v-model="formData.project_name" disabled placeholder="-" />
       </el-form-item>
 
       <el-form-item label="计划名称" prop="name">
@@ -68,7 +72,7 @@
           collapse-tags
           collapse-tags-tooltip
           placeholder="请选择测试人员"
-          :disabled="!formData.department_id"
+          :disabled="formData.department_id === null"
           :loading="optionsLoading.testers"
           filterable
         >
@@ -126,7 +130,8 @@ const formRef = ref()
 const formData = reactive({
   id: null,
   department_id: null,
-  project_name: '',
+  department_name: '-',
+  project_name: '-',
   name: '',
   status: '',
   start_date: '',
@@ -168,7 +173,8 @@ const resetForm = () => {
   Object.assign(formData, {
     id: null,
     department_id: null,
-    project_name: '',
+    department_name: '-',
+    project_name: '-',
     name: '',
     status: '',
     start_date: '',
@@ -224,7 +230,7 @@ const mergeTesterOptions = (options = []) => {
 }
 
 const fetchTesterOptions = async (departmentId) => {
-  if (!departmentId) return
+  if (departmentId === null || departmentId === undefined) return
   optionsLoading.testers = true
   try {
     const response = await departmentService.listMembers(departmentId, { page: 1, page_size: 1000 })
@@ -262,7 +268,7 @@ const fetchTesterOptions = async (departmentId) => {
 const open = (plan) => {
   resetForm()
   if (plan) {
-    const departmentId = Number(
+    const rawDepartmentId = Number(
       plan.department_id ||
         plan.departmentId ||
         plan.project?.department_id ||
@@ -270,6 +276,14 @@ const open = (plan) => {
         plan.project?.department?.id ||
         plan.department?.id
     )
+    const departmentId = Number.isNaN(rawDepartmentId) ? null : rawDepartmentId
+    const departmentName =
+      plan.department_name ||
+      plan.departmentName ||
+      plan.department?.name ||
+      plan.project?.department?.name ||
+      '-'
+    const projectName = plan.project_name || plan.projectName || plan.project?.name || '-'
     const testers = Array.isArray(plan.testers) ? plan.testers : []
     const initialTesterOptions = testers
       .map((tester) => buildTesterOption(tester))
@@ -277,8 +291,9 @@ const open = (plan) => {
     const testerIds = initialTesterOptions.map((item) => item.value)
     Object.assign(formData, {
       id: plan.id,
-      department_id: departmentId || null,
-      project_name: plan.project_name || '',
+      department_id: departmentId,
+      department_name: departmentName,
+      project_name: projectName,
       name: plan.name || '',
       status: plan.status || '',
       start_date: plan.start_date || '',
@@ -287,7 +302,7 @@ const open = (plan) => {
       tester_user_ids: testerIds
     })
     mergeTesterOptions(initialTesterOptions)
-    if (departmentId) {
+    if (departmentId !== null) {
       fetchTesterOptions(departmentId)
     }
   }
