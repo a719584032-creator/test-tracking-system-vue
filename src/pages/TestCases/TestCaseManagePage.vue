@@ -41,14 +41,26 @@
       <div class="case-table">
         <div class="table-header">
           <h3 class="table-title">用例列表</h3>
-          <el-button
-            type="primary"
-            @click="handleCreate"
-            class="create-btn"
-          >
-            <el-icon><Plus /></el-icon>
-            新建用例
-          </el-button>
+          <div class="table-actions">
+            <el-button
+              type="primary"
+              link
+              @click="openImportDialog"
+              class="import-btn"
+              :disabled="!departmentId"
+            >
+              <el-icon><UploadFilled /></el-icon>
+              导入用例
+            </el-button>
+            <el-button
+              type="primary"
+              @click="handleCreate"
+              class="create-btn"
+            >
+              <el-icon><Plus /></el-icon>
+              新建用例
+            </el-button>
+          </div>
         </div>
 
         <div class="toolbar">
@@ -147,20 +159,91 @@
       @success="fetchCases"
     />
 
+    <el-dialog
+      v-model="importDialogVisible"
+      title="导入用例"
+      width="520px"
+      destroy-on-close
+      @closed="resetImportForm"
+    >
+      <el-form
+        ref="importFormRef"
+        :model="importForm"
+        :rules="importRules"
+        label-width="96px"
+        status-icon
+      >
+        <el-form-item label="所属部门" prop="department_id">
+          <el-select v-model="importForm.department_id" disabled placeholder="请选择部门">
+            <el-option
+              v-for="dept in departments"
+              :key="dept.id"
+              :label="dept.name"
+              :value="dept.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="导入目录" prop="group_id">
+          <el-tree-select
+            v-model="importForm.group_id"
+            :data="importGroupOptions"
+            :props="treeSelectProps"
+            node-key="value"
+            clearable
+            check-strictly
+            placeholder="不选择则导入到默认目录"
+            :loading="importGroupLoading"
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="用例文件" prop="file">
+          <el-upload
+            drag
+            :auto-upload="false"
+            :file-list="importFileList"
+            :limit="1"
+            accept=".xls,.xlsx,.csv,.json,.zip"
+            @change="handleFileChange"
+            @remove="handleFileRemove"
+          >
+            <el-icon class="upload-icon"><UploadFilled /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处或 <em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">支持 Excel/CSV/JSON/ZIP 等格式，具体以后端解析为准</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="importDialogVisible = false">取 消</el-button>
+          <el-button type="primary" :loading="importSubmitting" @click="submitImport">
+            确 认
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 历史记录 -->
     <TestCaseHistory ref="historyRef" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
   Refresh,
   Search,
-  RefreshLeft
+  RefreshLeft,
+  UploadFilled
 } from '@element-plus/icons-vue'
 
 import CaseGroupTree from './components/CaseGroupTree.vue'
@@ -170,6 +253,7 @@ import TestCaseHistory from './components/TestCaseHistory.vue'
 
 import { testCaseService } from '@/api/testCases'
 import { departmentService } from '@/api/departments'
+import { caseGroupService } from '@/api/caseGroups'
 import {
   TEST_CASE_STATUS_OPTIONS,
   TEST_CASE_PRIORITY_OPTIONS,
@@ -205,6 +289,7 @@ const typeOptions = TEST_CASE_TYPE_OPTIONS
 const groupTreeRef = ref()
 const formRef = ref()
 const historyRef = ref()
+const importFormRef = ref()
 
 // 获取用例列表
 const fetchCases = async () => {
@@ -291,6 +376,134 @@ const handleHistory = (row) => {
   historyRef.value?.open(row.id)
 }
 
+// 导入相关
+const importDialogVisible = ref(false)
+const importGroupOptions = ref([])
+const importGroupLoading = ref(false)
+const importFileList = ref([])
+const importSubmitting = ref(false)
+const treeSelectProps = { value: 'value', label: 'label', children: 'children' }
+
+const importForm = reactive({
+  department_id: null,
+  group_id: null,
+  file: null
+})
+
+const importRules = {
+  department_id: [{ required: true, message: '请选择部门', trigger: 'change' }],
+  file: [{ required: true, message: '请上传用例文件', trigger: 'change' }]
+}
+
+const transformGroupOptions = (nodes = []) =>
+  nodes.map(node => ({
+    value: node.id,
+    label: node.name,
+    children: node.children ? transformGroupOptions(node.children) : []
+  }))
+
+const loadImportGroups = async () => {
+  if (!departmentId.value) {
+    importGroupOptions.value = []
+    return
+  }
+  importGroupLoading.value = true
+  try {
+    const resp = await caseGroupService.tree(departmentId.value)
+    if (resp.success) {
+      const children = resp.data?.children || []
+      importGroupOptions.value = transformGroupOptions(children)
+    }
+  } finally {
+    importGroupLoading.value = false
+  }
+}
+
+const openImportDialog = async () => {
+  if (!departmentId.value) {
+    ElMessage.error('请先选择部门')
+    return
+  }
+  Object.assign(importForm, {
+    department_id: departmentId.value,
+    group_id: filters.value.group_id || null,
+    file: null
+  })
+  importFileList.value = []
+  importDialogVisible.value = true
+  await loadImportGroups()
+  await nextTick()
+  importFormRef.value?.clearValidate?.()
+}
+
+const handleFileChange = (uploadFile, uploadFiles) => {
+  importForm.file = uploadFile?.raw || null
+  importFileList.value = uploadFiles ? [...uploadFiles] : []
+  importFormRef.value?.validateField?.('file')
+}
+
+const handleFileRemove = () => {
+  importForm.file = null
+  importFileList.value = []
+  importFormRef.value?.validateField?.('file')
+}
+
+const resolveImportMessage = (resp) => {
+  if (resp.data && typeof resp.data === 'object') {
+    const {
+      message,
+      success_count: successCount,
+      failure_count: failureCount,
+      failed_count: failedCount,
+      total_count: totalCount
+    } = resp.data
+    if (message) return message
+    const pieces = []
+    if (totalCount !== undefined) pieces.push(`共 ${totalCount} 条`)
+    if (successCount !== undefined) pieces.push(`成功 ${successCount} 条`)
+    const failureValue = failureCount ?? failedCount
+    if (failureValue !== undefined) pieces.push(`失败 ${failureValue} 条`)
+    if (pieces.length) return `导入完成（${pieces.join('，')}）`
+  }
+  return resp.message || '导入成功'
+}
+
+const submitImport = () => {
+  if (!importFormRef.value) return
+  importFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    if (!importForm.file) {
+      ElMessage.error('请上传用例文件')
+      return
+    }
+    importSubmitting.value = true
+    try {
+      const resp = await testCaseService.batchImportFromFile({
+        department_id: importForm.department_id,
+        group_id: importForm.group_id,
+        file: importForm.file
+      })
+      if (resp.success) {
+        ElMessage.success(resolveImportMessage(resp))
+        importDialogVisible.value = false
+        fetchCases()
+        groupTreeRef.value?.refresh()
+      }
+    } finally {
+      importSubmitting.value = false
+    }
+  })
+}
+
+const resetImportForm = () => {
+  importFileList.value = []
+  Object.assign(importForm, {
+    department_id: departmentId.value || null,
+    group_id: filters.value.group_id || null,
+    file: null
+  })
+  importFormRef.value = null
+}
 
 // 搜索和重置
 const handleSearch = () => {
@@ -330,6 +543,15 @@ const parseKeywords = (val) => {
 
 onMounted(() => {
   fetchDepartments()
+})
+
+watch(departmentId, (val) => {
+  importForm.department_id = val || null
+  if (!val) {
+    importGroupOptions.value = []
+  } else if (importDialogVisible.value) {
+    loadImportGroups()
+  }
 })
 </script>
 
@@ -411,11 +633,42 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.import-btn {
+  padding: 0 12px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.import-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .create-btn {
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
+}
+
+.upload-icon {
+  font-size: 40px;
+  color: #409eff;
+  margin-bottom: 12px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .toolbar {

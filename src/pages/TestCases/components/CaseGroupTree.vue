@@ -46,6 +46,14 @@
                 type="primary"
                 size="small"
                 text
+                @click.stop="onCopyGroup(data)"
+              >
+                <el-icon><CopyDocument /></el-icon>
+              </el-button>
+              <el-button
+                type="primary"
+                size="small"
+                text
                 @click.stop="onEditGroup(data)"
               >
                 <el-icon><Edit /></el-icon>
@@ -68,7 +76,7 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
-import { Plus, Edit, Delete, Folder, FolderOpened } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Folder, FolderOpened, CopyDocument } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { caseGroupService } from '@/api/caseGroups'
 
@@ -170,6 +178,27 @@ const onDeleteGroup = async (data) => {
   } catch {}
 }
 
+const onCopyGroup = async (data) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入复制后的分组名称', '复制分组', {
+      inputValue: `${data.name} - 副本`,
+      inputValidator: v => !!v || '名称不能为空'
+    })
+    const resp = await caseGroupService.copy(data.id, { new_name: value })
+    if (resp.success) {
+      await fetchGroups()
+      await nextTick()
+      const newGroupId = resp.data?.id ?? data.id
+      selectedGroupId.value = newGroupId
+      treeRef.value?.setCurrentKey(newGroupId)
+      if (resp.data?.id) {
+        emit('group-select', newGroupId)
+        emit('select', newGroupId)
+      }
+    }
+  } catch {}
+}
+
 const clearSelection = () => {
   selectedGroupId.value = null
   treeRef.value?.setCurrentKey(null)
@@ -209,7 +238,7 @@ defineExpose({ clearSelection, refresh, fetchGroups: refresh })
 .tree-node {
   position: relative;
   display: flex; align-items: center; width: 100%;
-  padding-right: 76px;
+  padding-right: 108px;
 }
 
 .node-content {

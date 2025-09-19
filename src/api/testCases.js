@@ -63,6 +63,11 @@ function copyTestCase(caseId, payload) {
   return http.post(`/api/test-cases/${caseId}/copy`, payload)
 }
 
+// 批量导入用例 POST /api/test-cases/batch-import
+function batchImportTestCases(payload, config = {}) {
+  return http.post('/api/test-cases/batch-import', payload, config)
+}
+
 // 用例历史 GET /api/test-cases/:case_id/history
 function getTestCaseHistory(caseId, params = {}) {
   return http.get(`/api/test-cases/${caseId}/history`, { params })
@@ -102,6 +107,21 @@ export const testCaseService = {
 
   /** 复制用例 */
   copy: (caseId, payload) => handleRequest(copyTestCase, [caseId, payload], '复制用例失败'),
+
+  /** 通过文件导入用例 */
+  batchImportFromFile: ({ department_id: departmentId, group_id: groupId, file }) => {
+    if (!departmentId) {
+      return Promise.resolve({ success: false, message: '部门ID不能为空', data: null })
+    }
+
+    const formData = new FormData()
+    formData.append('department_id', departmentId)
+    if (groupId) formData.append('group_id', groupId)
+    formData.append('file', file)
+
+    const config = { headers: { 'Content-Type': 'multipart/form-data' } }
+    return handleRequest(batchImportTestCases, [formData, config], '导入用例失败')
+  },
 
   /** 获取用例历史 */
   history: (caseId, limit) => {
