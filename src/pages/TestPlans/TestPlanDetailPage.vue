@@ -22,7 +22,7 @@
         </div>
         <div class="info-item">
           <span class="label">创建人</span>
-          <span class="value">{{ planDetail?.created_by_name || `用户#${planDetail?.created_by ?? '-'}` }}</span>
+          <span class="value">{{ planDetail?.created_by_name || `用户#${planDetail?.creator.username ?? '-'}` }}</span>
         </div>
         <div class="info-item">
           <span class="label">创建时间</span>

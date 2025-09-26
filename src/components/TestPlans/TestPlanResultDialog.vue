@@ -51,16 +51,7 @@
         />
       </el-form-item>
 
-      <el-form-item label="耗时 (毫秒)">
-        <el-input-number
-          v-model="formData.duration_ms"
-          :min="0"
-          :max="36000000"
-          :step="100"
-          placeholder="请输入耗时"
-          style="width: 100%"
-        />
-      </el-form-item>
+      <!-- 已移除“耗时(毫秒)”输入框 -->
 
       <el-form-item label="缺陷关联">
         <el-input
@@ -132,12 +123,8 @@ import { EXECUTION_RESULT_OPTIONS, resolveExecutionResultLabel } from '@/constan
 import { encryptTimestamp } from '@/utils/timestampEncryption'
 
 const props = defineProps({
-  planId: {
-    type: Number,
-    required: true
-  }
+  planId: { type: Number, required: true }
 })
-
 const emit = defineEmits(['success'])
 
 const visible = ref(false)
@@ -153,15 +140,12 @@ const formData = reactive({
   remark: '',
   failure_reason: '',
   bug_ref: '',
-  duration_ms: null,
   execution_start_time: null,
   execution_end_time: null
 })
 
 const rules = {
-  result: [
-    { required: true, message: '请选择执行结果', trigger: 'change' }
-  ],
+  result: [{ required: true, message: '请选择执行结果', trigger: 'change' }],
   execution_start_time: [
     { required: true, message: '请选择执行开始时间', trigger: 'change' },
     { validator: validateTimeOrder, trigger: 'change' }
@@ -177,26 +161,15 @@ const attachmentList = ref([])
 function validateTimeOrder(rule, value, callback) {
   const start = formData.execution_start_time
   const end = formData.execution_end_time
-  if (!start || !end) {
-    callback()
-    return
-  }
+  if (!start || !end) return callback()
   const startMs = new Date(start).getTime()
   const endMs = new Date(end).getTime()
-  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
-    callback(new Error('请选择有效的时间'))
-    return
-  }
-  if (endMs < startMs) {
-    callback(new Error('结束时间不能早于开始时间'))
-    return
-  }
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return callback(new Error('请选择有效的时间'))
+  if (endMs < startMs) return callback(new Error('结束时间不能早于开始时间'))
   callback()
 }
 
-const disableFutureDate = (date) => {
-  return date.getTime() > Date.now()
-}
+const disableFutureDate = (date) => date.getTime() > Date.now()
 
 const normalizeExistingAttachment = (attachment) => ({
   uid: `existing-${attachment.id ?? attachment.file_path ?? attachment.file_name}-${Math.random().toString(36).slice(2, 8)}`,
@@ -213,11 +186,9 @@ const normalizeExistingAttachment = (attachment) => ({
 const handleAttachmentChange = (uploadFile, uploadFiles) => {
   attachmentList.value = uploadFiles
 }
-
 const handleAttachmentRemove = (uploadFile, uploadFiles) => {
   attachmentList.value = uploadFiles
 }
-
 const handleAttachmentExceed = () => {
   ElMessage.warning('最多只能上传 10 个附件，请先删除部分文件')
 }
@@ -227,14 +198,12 @@ const resetAttachments = (execution) => {
   attachmentList.value = attachments.map((item) => normalizeExistingAttachment(item))
 }
 
-const readFileAsDataUrl = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(new Error('附件读取失败'))
-    reader.readAsDataURL(file)
-  })
-}
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(new Error('附件读取失败'))
+  reader.readAsDataURL(file)
+})
 
 const prepareAttachmentsPayload = async () => {
   const results = []
@@ -261,12 +230,7 @@ const prepareAttachmentsPayload = async () => {
 }
 
 const executionSummary = computed(() => {
-  if (!currentExecution.value) {
-    return {
-      caseTitle: '',
-      deviceLabel: ''
-    }
-  }
+  if (!currentExecution.value) return { caseTitle: '', deviceLabel: '' }
   const caseTitle = currentExecution.value.case_title || `用例 #${currentExecution.value.case_id}`
   const deviceLabel = currentExecution.value.device_model_name || currentExecution.value.device_model_code
   if (currentExecution.value.device_model_id) {
@@ -287,7 +251,6 @@ const open = (execution) => {
     remark: execution?.remark || '',
     failure_reason: execution?.failure_reason || '',
     bug_ref: execution?.bug_ref || '',
-    duration_ms: execution?.duration_ms ?? null,
     execution_start_time: execution?.execution_start_time ? new Date(execution.execution_start_time) : null,
     execution_end_time: execution?.execution_end_time ? new Date(execution.execution_end_time) : null
   })
@@ -315,6 +278,7 @@ const handleSubmit = () => {
         ElMessage.error('结束时间不能早于开始时间')
         return
       }
+
       const [encryptedStart, encryptedEnd] = await Promise.all([
         encryptTimestamp(startDate),
         encryptTimestamp(endDate)
@@ -328,7 +292,6 @@ const handleSubmit = () => {
         remark: formData.remark || undefined,
         failure_reason: formData.failure_reason || undefined,
         bug_ref: formData.bug_ref || undefined,
-        duration_ms: formData.duration_ms ?? undefined,
         execution_start_time: encryptedStart,
         execution_end_time: encryptedEnd,
         attachments: attachmentsPayload
@@ -336,12 +299,7 @@ const handleSubmit = () => {
       const response = await testPlansApi.recordResult(props.planId, payload)
       if (response?.success) {
         const sanitizedAttachments = attachmentsPayload.map((item) => {
-          if (item.content) {
-            return {
-              file_name: item.file_name,
-              size: item.size
-            }
-          }
+          if (item.content) return { file_name: item.file_name, size: item.size }
           return { ...item }
         })
         const fallbackResult = {
@@ -358,8 +316,7 @@ const handleSubmit = () => {
       }
     } catch (error) {
       console.error(error)
-      const message = error?.message || '记录执行结果失败'
-      ElMessage.error(message)
+      ElMessage.error(error?.message || '记录执行结果失败')
     } finally {
       submitting.value = false
     }
@@ -371,9 +328,7 @@ const handleClose = () => {
   attachmentList.value = []
 }
 
-defineExpose({
-  open
-})
+defineExpose({ open })
 </script>
 
 <style scoped>
@@ -382,8 +337,5 @@ defineExpose({
   justify-content: flex-end;
   gap: 12px;
 }
-
-.attachment-uploader {
-  width: 100%;
-}
+.attachment-uploader { width: 100%; }
 </style>
