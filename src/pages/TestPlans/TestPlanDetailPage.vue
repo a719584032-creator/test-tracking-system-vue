@@ -108,7 +108,7 @@
             <el-option
               v-for="path in groupPathOptions"
               :key="path"
-              :label="path"
+              :label="formatGroupPathLabel(path)"
               :value="path"
             />
           </el-select>
@@ -122,9 +122,9 @@
           >
             <el-option
               v-for="option in priorityOptions"
-              :key="option"
-              :label="option"
-              :value="option"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
             />
           </el-select>
         </el-form-item>
@@ -202,7 +202,7 @@
             <div class="case-meta">
               <span>优先级：{{ row.caseInfo.priority || '-' }}</span>
               <span v-if="row.caseInfo.group_path" class="case-meta-divider">|</span>
-              <span v-if="row.caseInfo.group_path">目录：{{ row.caseInfo.group_path }}</span>
+              <span v-if="row.caseInfo.group_path">目录：{{ formatGroupPathLabel(row.caseInfo.group_path) }}</span>
             </div>
           </template>
         </el-table-column>
@@ -268,6 +268,7 @@ import {
   resolvePlanStatusLabel,
   TEST_PLAN_STATUS_TAG_MAP
 } from '@/constants/testPlan'
+import { TEST_CASE_PRIORITY_LABEL_MAP, TEST_CASE_PRIORITY_OPTIONS } from '@/constants/testCase'
 import { formatDateTime } from '@/utils/format'
 import TestPlanResultDialog from '@/components/TestPlans/TestPlanResultDialog.vue'
 import PlanCaseDetailDialog from '@/components/TestPlans/PlanCaseDetailDialog.vue'
@@ -291,7 +292,7 @@ const caseFilters = reactive({
   keyword: ''
 })
 
-const priorityOptions = ref(['P0', 'P1', 'P2', 'P3', 'P4'])
+const priorityOptions = ref(TEST_CASE_PRIORITY_OPTIONS.map((option) => ({ ...option })))
 const statusOptions = EXECUTION_RESULT_OPTIONS
 const groupPathOptions = ref([])
 
@@ -402,6 +403,19 @@ const resolveResultTag = (result) => EXECUTION_RESULT_TAG_MAP[result] || 'info'
 
 const formatDate = (value) => (value ? String(value).slice(0, 10) : '-')
 
+const stripGroupRootPrefix = (path = '') => {
+  const normalized = String(path)
+  if (normalized === 'root' || normalized === 'root/') return ''
+  if (normalized.startsWith('root/')) return normalized.slice(5)
+  return normalized
+}
+
+const formatGroupPathLabel = (path) => {
+  if (!path) return ''
+  const stripped = stripGroupRootPrefix(path)
+  return stripped || '根目录'
+}
+
 const resolveUserName = (userId) => {
   if (!userId) return '-'
   const name = testerMap.value.get(Number(userId))
@@ -446,13 +460,17 @@ const fetchPlanCases = async () => {
     const cases = Array.isArray(response.data?.cases) ? response.data.cases : []
     planCases.value = cases
     const uniquePaths = new Set(groupPathOptions.value)
-    const uniquePriorities = new Set(priorityOptions.value)
+    const uniquePriorities = new Map(priorityOptions.value.map((option) => [option.value, option.label]))
     cases.forEach((item) => {
       if (item.group_path) uniquePaths.add(item.group_path)
-      if (item.priority) uniquePriorities.add(item.priority)
+      if (item.priority) {
+        const priorityValue = String(item.priority)
+        const label = TEST_CASE_PRIORITY_LABEL_MAP[priorityValue] || priorityValue
+        uniquePriorities.set(priorityValue, label)
+      }
     })
     groupPathOptions.value = Array.from(uniquePaths).sort()
-    priorityOptions.value = Array.from(uniquePriorities)
+    priorityOptions.value = Array.from(uniquePriorities, ([value, label]) => ({ value, label }))
   } catch (error) {
     console.error('获取计划用例失败:', error)
   } finally {

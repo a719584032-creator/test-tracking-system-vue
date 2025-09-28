@@ -14,10 +14,10 @@
             {{ caseDetail.title || `用例 #${caseDetail.case_id}` }}
           </el-descriptions-item>
           <el-descriptions-item label="所属目录">
-            {{ caseDetail.group_path || '-' }}
+            {{ caseDetail.group_path ? formatGroupPathLabel(caseDetail.group_path) : '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="优先级">
-            {{ caseDetail.priority || '-' }}
+            {{ resolvePriorityLabel(caseDetail.priority) }}
           </el-descriptions-item>
           <el-descriptions-item label="最新结果">
             <el-tag :type="resolveResultTag(caseDetail.latest_result)">
@@ -167,6 +167,7 @@ import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { testPlansApi } from '@/api/testPlans'
 import { EXECUTION_RESULT_TAG_MAP, resolveExecutionResultLabel } from '@/constants/testPlan'
+import { TEST_CASE_PRIORITY_LABEL_MAP } from '@/constants/testCase'
 import { formatDateTime } from '@/utils/format'
 
 const props = defineProps({
@@ -189,6 +190,24 @@ const orderedSteps = computed(() => {
 })
 
 const resolveResultTag = (result) => EXECUTION_RESULT_TAG_MAP[result] || 'info'
+
+const resolvePriorityLabel = (priority) => {
+  if (!priority) return '-'
+  return TEST_CASE_PRIORITY_LABEL_MAP[priority] || priority
+}
+
+const stripGroupRootPrefix = (path = '') => {
+  const normalized = String(path)
+  if (normalized === 'root' || normalized === 'root/') return ''
+  if (normalized.startsWith('root/')) return normalized.slice(5)
+  return normalized
+}
+
+const formatGroupPathLabel = (path) => {
+  if (!path) return ''
+  const stripped = stripGroupRootPrefix(path)
+  return stripped || '根目录'
+}
 
 const resolveDeviceLabel = (execution) => {
   const device = execution.device_model || execution.plan_device_model
