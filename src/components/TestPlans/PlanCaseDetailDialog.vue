@@ -123,7 +123,7 @@
                             <span class="history-time">{{ formatDateTime(log.executed_at) || '-' }}</span>
                           </div>
                           <div class="history-meta">
-                            <span>执行人：{{ resolveExecutorName(log.executed_by) }}</span>
+                            <span>执行人：{{ resolveExecutorName(log.executed_by_name) }}</span>
                             <span>耗时：{{ formatDuration(log.duration_ms) }}</span>
                           </div>
                           <p v-if="log.failure_reason" class="history-text">
@@ -224,7 +224,7 @@ const resolveDeviceLabel = (execution) => {
 const resolveExecutorName = (executedBy) => {
   if (!executedBy) return '-'
   if (typeof executedBy === 'object') return executedBy.username || executedBy.name || '-'
-  return `用户#${executedBy}`
+  return `${executedBy}`
 }
 
 const formatDuration = (milliseconds) => {
