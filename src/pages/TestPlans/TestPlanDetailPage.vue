@@ -7,7 +7,7 @@
       </div>
     </div>
 
-    <el-card v-loading="loading" class="info-card" shadow="never">
+    <el-card v-loading="planLoading" class="info-card" shadow="never">
       <template #header>
         <div class="card-header">
           <h3>{{ planDetail?.name || '测试计划详情' }}</h3>
@@ -92,34 +92,124 @@
       <template #header>
         <div class="card-header">
           <h3>计划用例</h3>
-          <span class="card-sub">共 {{ executionRows.length }} 条执行记录</span>
+          <span class="card-sub">共 {{ planCases.length }} 条用例</span>
         </div>
       </template>
 
+      <el-form :inline="true" :model="caseFilters" class="case-filter-form">
+        <el-form-item label="目录">
+          <el-select
+            v-model="caseFilters.group_path"
+            placeholder="全部目录"
+            clearable
+            filterable
+            class="filter-item"
+          >
+            <el-option
+              v-for="path in groupPathOptions"
+              :key="path"
+              :label="path"
+              :value="path"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="优先级">
+          <el-select
+            v-model="caseFilters.priority"
+            placeholder="全部优先级"
+            clearable
+            class="filter-item"
+          >
+            <el-option
+              v-for="option in priorityOptions"
+              :key="option"
+              :label="option"
+              :value="option"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="结果">
+          <el-select
+            v-model="caseFilters.status"
+            placeholder="全部状态"
+            clearable
+            class="filter-item"
+          >
+            <el-option
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-input
+            v-model="caseFilters.keyword"
+            placeholder="搜索用例标题"
+            clearable
+            class="filter-input"
+            @clear="handleSearch"
+            @keyup.enter="handleSearch"
+          >
+            <template #suffix>
+              <el-icon class="search-icon"><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="resetFilters">重置</el-button>
+        </el-form-item>
+      </el-form>
+
       <el-table
-        v-loading="loading"
+        v-loading="casesLoading"
         :data="executionRows"
         stripe
         empty-text="暂无用例数据"
       >
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="case-expand">
+              <div class="expand-section" v-if="row.caseInfo.preconditions">
+                <h4>前置条件</h4>
+                <p>{{ row.caseInfo.preconditions }}</p>
+              </div>
+              <div class="expand-section" v-if="row.caseInfo.steps?.length">
+                <h4>测试步骤</h4>
+                <ol>
+                  <li v-for="step in row.caseInfo.steps" :key="`${step.no}-${step.action}`">
+                    <div class="step-line">
+                      <strong>步骤 {{ step.no }}：</strong>{{ step.action || '-' }}
+                    </div>
+                    <div v-if="step.expected" class="step-note">期望：{{ step.expected }}</div>
+                    <div v-if="step.note" class="step-note">备注：{{ step.note }}</div>
+                  </li>
+                </ol>
+              </div>
+              <div class="expand-section" v-if="row.caseInfo.expected_result">
+                <h4>预期结果</h4>
+                <p>{{ row.caseInfo.expected_result }}</p>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="case_title" label="用例" min-width="220">
           <template #default="{ row }">
             <div class="case-title">{{ row.case_title }}</div>
-            <div class="case-meta">优先级：{{ row.priority || '-' }}</div>
+            <div class="case-meta">
+              <span>优先级：{{ row.caseInfo.priority || '-' }}</span>
+              <span v-if="row.caseInfo.group_path" class="case-meta-divider">|</span>
+              <span v-if="row.caseInfo.group_path">目录：{{ row.caseInfo.group_path }}</span>
+            </div>
           </template>
         </el-table-column>
 
         <el-table-column prop="device_model_name" label="执行机型" min-width="180">
           <template #default="{ row }">
             {{ row.device_model_name || row.device_model_code || (row.device_model_id ? `机型 #${row.device_model_id}` : '通用') }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="require_all_devices" label="机型要求" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag size="small" :type="row.require_all_devices ? 'warning' : 'info'">
-              {{ row.require_all_devices ? '需全部机型' : '任意机型' }}
-            </el-tag>
           </template>
         </el-table-column>
 
@@ -143,10 +233,13 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="140" fixed="right" align="center">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="openResultDialog(row)">
               记录结果
+            </el-button>
+            <el-button size="small" @click="openCaseDetail(row)">
+              查看详情
             </el-button>
           </template>
         </el-table-column>
@@ -158,15 +251,18 @@
       :plan-id="planId"
       @success="handleResultSaved"
     />
+    <PlanCaseDetailDialog ref="caseDetailDialogRef" :plan-id="planId" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { testPlansApi } from '@/api/testPlans'
 import {
+  EXECUTION_RESULT_OPTIONS,
   EXECUTION_RESULT_TAG_MAP,
   resolveExecutionResultLabel,
   resolvePlanStatusLabel,
@@ -174,15 +270,30 @@ import {
 } from '@/constants/testPlan'
 import { formatDateTime } from '@/utils/format'
 import TestPlanResultDialog from '@/components/TestPlans/TestPlanResultDialog.vue'
+import PlanCaseDetailDialog from '@/components/TestPlans/PlanCaseDetailDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const planId = ref(Number(route.params.id))
-const loading = ref(false)
+const planLoading = ref(false)
+const casesLoading = ref(false)
 const planDetail = ref(null)
+const planCases = ref([])
 
 const resultDialogRef = ref()
+const caseDetailDialogRef = ref()
+
+const caseFilters = reactive({
+  group_path: '',
+  priority: '',
+  status: '',
+  keyword: ''
+})
+
+const priorityOptions = ref(['P0', 'P1', 'P2', 'P3', 'P4'])
+const statusOptions = EXECUTION_RESULT_OPTIONS
+const groupPathOptions = ref([])
 
 /** 将 user_id -> 显示名 做一个映射，方便回退展示执行人 */
 const testerMap = computed(() => {
@@ -218,38 +329,55 @@ const deviceNames = computed(() => {
 
 /** 展平 cases -> execution_results 为表格行 */
 const executionRows = computed(() => {
-  const plan = planDetail.value
-  if (!plan?.cases) return []
+  const cases = planCases.value
+  if (!cases?.length) return []
   const rows = []
-  plan.cases.forEach((caseItem) => {
+  cases.forEach((caseItem) => {
     const executions = Array.isArray(caseItem.execution_results) ? caseItem.execution_results : []
-    // 没有执行结果时，按用例一行，显示 latest_result
+    const caseInfo = {
+      plan_case_id: caseItem.id,
+      case_id: caseItem.case_id,
+      title: caseItem.title,
+      priority: caseItem.priority,
+      group_path: caseItem.group_path,
+      preconditions: caseItem.preconditions,
+      steps: Array.isArray(caseItem.steps) ? caseItem.steps : [],
+      expected_result: caseItem.expected_result,
+      latest_result: caseItem.latest_result
+    }
     if (!executions.length) {
       rows.push({
         case_id: caseItem.case_id,
         case_title: caseItem.title,
-        priority: caseItem.priority,
-        require_all_devices: caseItem.require_all_devices,
         plan_case_id: caseItem.id,
         result: caseItem.latest_result,
         executed_at: null,
         executed_by: null,
-        executed_by_name: null
+        executed_by_name: null,
+        device_model_id: null,
+        device_model_name: null,
+        device_model_code: null,
+        plan_device_model_id: null,
+        remark: null,
+        failure_reason: null,
+        bug_ref: null,
+        run_id: null,
+        execution_id: null,
+        caseInfo
       })
       return
     }
-    // 有执行结果则每条执行结果一行
     executions.forEach((exec) => {
       rows.push({
         case_id: caseItem.case_id,
         case_title: caseItem.title,
-        priority: caseItem.priority,
-        require_all_devices: caseItem.require_all_devices,
         plan_case_id: exec.plan_case_id || caseItem.id,
         plan_case_internal_id: caseItem.id,
         device_model_id: exec.device_model_id,
-        device_model_name: exec.device_model?.name || exec.device_model?.device_model?.name || exec.device_model_name,
-        device_model_code: exec.device_model?.model_code || exec.device_model?.device_model?.model_code || exec.device_model_code,
+        device_model_name:
+          exec.device_model?.name || exec.device_model?.device_model?.name || exec.device_model_name,
+        device_model_code:
+          exec.device_model?.model_code || exec.device_model?.device_model?.model_code || exec.device_model_code,
         plan_device_model_id: exec.plan_device_model_id,
         result: exec.result,
         executed_at: exec.executed_at,
@@ -259,7 +387,8 @@ const executionRows = computed(() => {
         failure_reason: exec.failure_reason,
         bug_ref: exec.bug_ref,
         run_id: exec.run_id,
-        execution_id: exec.id
+        execution_id: exec.id,
+        caseInfo
       })
     })
   })
@@ -285,7 +414,7 @@ const goBack = () => {
 
 const fetchDetail = async () => {
   if (!planId.value) return
-  loading.value = true
+  planLoading.value = true
   try {
     const response = await testPlansApi.get(planId.value)
     if (!(response && response.code === 200)) {
@@ -296,16 +425,65 @@ const fetchDetail = async () => {
   } catch (error) {
     console.error('获取计划详情失败:', error)
   } finally {
-    loading.value = false
+    planLoading.value = false
   }
+}
+
+const fetchPlanCases = async () => {
+  if (!planId.value) return
+  casesLoading.value = true
+  try {
+    const params = {
+      group_path: caseFilters.group_path,
+      priority: caseFilters.priority,
+      status: caseFilters.status
+    }
+    if (caseFilters.keyword) {
+      params.keyword = caseFilters.keyword
+    }
+    const response = await testPlansApi.getCases(planId.value, params)
+    if (!response?.success) return
+    const cases = Array.isArray(response.data?.cases) ? response.data.cases : []
+    planCases.value = cases
+    const uniquePaths = new Set(groupPathOptions.value)
+    const uniquePriorities = new Set(priorityOptions.value)
+    cases.forEach((item) => {
+      if (item.group_path) uniquePaths.add(item.group_path)
+      if (item.priority) uniquePriorities.add(item.priority)
+    })
+    groupPathOptions.value = Array.from(uniquePaths).sort()
+    priorityOptions.value = Array.from(uniquePriorities)
+  } catch (error) {
+    console.error('获取计划用例失败:', error)
+  } finally {
+    casesLoading.value = false
+  }
+}
+
+const handleSearch = () => {
+  fetchPlanCases()
+}
+
+const resetFilters = () => {
+  caseFilters.group_path = ''
+  caseFilters.priority = ''
+  caseFilters.status = ''
+  caseFilters.keyword = ''
+  fetchPlanCases()
 }
 
 const openResultDialog = (row) => {
   resultDialogRef.value?.open(row)
 }
 
+const openCaseDetail = (row) => {
+  const planCaseId = row.caseInfo?.plan_case_id || row.plan_case_internal_id || row.plan_case_id
+  caseDetailDialogRef.value?.open(planCaseId)
+}
+
 const handleResultSaved = async () => {
   await fetchDetail()
+  await fetchPlanCases()
 }
 
 watch(
@@ -315,7 +493,15 @@ watch(
     if (!Number.isNaN(numericId)) {
       planId.value = numericId
       fetchDetail()
+      fetchPlanCases()
     }
+  }
+)
+
+watch(
+  () => [caseFilters.group_path, caseFilters.priority, caseFilters.status],
+  () => {
+    fetchPlanCases()
   }
 )
 
@@ -325,6 +511,7 @@ onMounted(() => {
     return
   }
   fetchDetail()
+  fetchPlanCases()
 })
 </script>
 
@@ -437,6 +624,70 @@ onMounted(() => {
 
 .case-meta {
   margin-top: 2px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.case-meta-divider {
+  color: var(--el-text-color-disabled);
+}
+
+.case-filter-form {
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.filter-item {
+  min-width: 160px;
+}
+
+.filter-input {
+  width: 220px;
+}
+
+.search-icon {
+  color: var(--el-text-color-placeholder);
+}
+
+.case-expand {
+  padding: 12px 4px;
+  display: grid;
+  gap: 12px;
+}
+
+.case-expand h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.case-expand p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.case-expand ol {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.case-expand li {
+  list-style: decimal;
+}
+
+.step-line {
+  font-weight: 500;
+}
+
+.step-note {
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
