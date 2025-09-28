@@ -33,6 +33,8 @@ async function handleRequest(apiFunc, args = [], defaultErrorMsg = '操作失败
 
 const listTestPlans = (params = {}) => http.get(BASE_URL, { params })
 const getTestPlan = (planId) => http.get(`${BASE_URL}/${planId}`)
+const getTestPlanCases = (planId, params = {}) => http.get(`${BASE_URL}/${planId}/cases`, { params })
+const getTestPlanCaseDetail = (planId, planCaseId) => http.get(`${BASE_URL}/${planId}/cases/${planCaseId}`)
 const createTestPlan = (payload) => http.post(BASE_URL, payload)
 const updateTestPlan = (planId, payload) => http.put(`${BASE_URL}/${planId}`, payload)
 const deleteTestPlan = (planId) => http.delete(`${BASE_URL}/${planId}`)
@@ -52,6 +54,21 @@ export const testPlansApi = {
 
   get(planId) {
     return handleRequest(getTestPlan, [planId], '获取测试计划详情失败')
+  },
+
+  getCases(planId, params = {}) {
+    const finalParams = { ...params }
+    Object.keys(finalParams).forEach((key) => {
+      const value = finalParams[key]
+      if (value === '' || value === null || value === undefined) {
+        delete finalParams[key]
+      }
+    })
+    return handleRequest(getTestPlanCases, [planId, finalParams], '获取计划用例失败')
+  },
+
+  getCaseDetail(planId, planCaseId) {
+    return handleRequest(getTestPlanCaseDetail, [planId, planCaseId], '获取用例详情失败')
   },
 
   create(payload) {
