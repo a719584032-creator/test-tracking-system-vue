@@ -104,7 +104,17 @@
               {{ selectionSummary }}
             </div>
           </div>
-          <el-tag v-if="cases.length" type="info" effect="plain">共 {{ cases.length }} 条</el-tag>
+          <div class="result-meta" v-if="cases.length">
+            <el-tag type="info" effect="plain">共 {{ cases.length }} 条</el-tag>
+            <div class="result-stat-tags">
+              <el-tag size="small" type="danger" effect="plain">
+                失败 {{ statusSummary.fail }}
+              </el-tag>
+              <el-tag size="small" type="warning" effect="plain">
+                阻塞 {{ statusSummary.block }}
+              </el-tag>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -128,12 +138,22 @@
               <div v-if="row.preConditions" class="case-sub">前置条件：{{ row.preConditions }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="执行结果" width="160">
+          <el-table-column label="执行情况" min-width="220">
             <template #default="{ row }">
-              <el-tag :type="getResultTagType(row.result)" effect="dark" size="small">
-                {{ formatResultLabel(row.result) }}
-              </el-tag>
-              <div v-if="row.testTime" class="case-sub">执行时长：{{ row.testTime }}</div>
+              <div class="case-result">
+                <el-tag :type="getResultTagType(row.result)" effect="dark" size="small">
+                  {{ formatResultLabel(row.result) }}
+                </el-tag>
+                <div class="result-metrics">
+                  <el-tag size="small" effect="plain" type="danger">
+                    失败 {{ row.failCount ?? 0 }}
+                  </el-tag>
+                  <el-tag size="small" effect="plain" type="warning">
+                    阻塞 {{ row.blockCount ?? 0 }}
+                  </el-tag>
+                </div>
+              </div>
+              <div class="case-sub case-sub--time" v-if="row.testTime">执行时长：{{ row.testTime }}</div>
             </template>
           </el-table-column>
           <el-table-column prop="executor" label="执行人" width="120" />
@@ -172,6 +192,16 @@
           <el-descriptions-item label="执行结果">
             <el-tag :type="getResultTagType(activeCase.result)" size="small">
               {{ formatResultLabel(activeCase.result) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="失败次数">
+            <el-tag size="small" type="danger" effect="plain">
+              {{ activeCase.failCount ?? 0 }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="阻塞次数">
+            <el-tag size="small" type="warning" effect="plain">
+              {{ activeCase.blockCount ?? 0 }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="开始时间">{{ formatDateTime(activeCase.startTime) || '-' }}</el-descriptions-item>
@@ -258,6 +288,8 @@ const activeCase = ref(null)
 const caseImages = ref([])
 const imagesLoading = ref(false)
 
+const IMAGE_BASE_URL = 'https://patvs.lenovo.com'
+
 const previewSrcList = computed(() => caseImages.value.map((item) => item.url))
 
 const hasAnySelection = computed(() => Boolean(selectedProject.value || selectedPlanId.value || selectedModelId.value || selectedSheetId.value))
@@ -313,7 +345,34 @@ const normalizeCaseItem = (item) => ({
   endTime: item.EndTime || item.End_Time || item.end_time,
   testTime: item.TestTime || item.test_time,
   executionId: item.ExecutionID,
+  failCount: item.FailCount ?? item.fail_count ?? 0,
+  blockCount: item.BlockCount ?? item.block_count ?? 0,
 })
+
+const statusSummary = computed(() => {
+  const summary = {
+    fail: 0,
+    block: 0,
+  }
+  cases.value.forEach((item) => {
+    summary.fail += Number(item.failCount ?? 0)
+    summary.block += Number(item.blockCount ?? 0)
+  })
+  return summary
+})
+
+const formatImageUrl = (url) => {
+  if (!url) return ''
+  try {
+    const targetOrigin = new URL(IMAGE_BASE_URL)
+    const parsed = new URL(url, IMAGE_BASE_URL)
+    parsed.protocol = targetOrigin.protocol
+    parsed.host = targetOrigin.host
+    return parsed.toString()
+  } catch (error) {
+    return `${IMAGE_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+  }
+}
 
 const loadProjects = async () => {
   projectsLoading.value = true
@@ -375,7 +434,11 @@ const loadCaseImages = async (executionId) => {
   const { success, data } = await legacyDataApi.listImages([executionId])
   if (success) {
     const key = String(executionId)
-    caseImages.value = data?.[key] || []
+    const rawImages = data?.[key] || []
+    caseImages.value = rawImages.map((item) => ({
+      ...item,
+      url: formatImageUrl(item.url || item.image_url || ''),
+    }))
   }
   imagesLoading.value = false
 }
@@ -515,6 +578,17 @@ onMounted(() => {
   justify-content: space-between;
 }
 
+.result-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.result-stat-tags {
+  display: flex;
+  gap: 8px;
+}
+
 .result-title {
   font-size: 16px;
   font-weight: 600;
@@ -535,6 +609,18 @@ onMounted(() => {
   width: 100%;
 }
 
+.case-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.result-metrics {
+  display: flex;
+  gap: 8px;
+}
+
 .case-title {
   font-weight: 500;
   color: #1f2d3d;
@@ -544,6 +630,10 @@ onMounted(() => {
   margin-top: 4px;
   font-size: 12px;
   color: #8c9db5;
+}
+
+.case-sub--time {
+  margin-top: 6px;
 }
 
 .case-comment {
