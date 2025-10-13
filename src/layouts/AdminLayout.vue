@@ -39,6 +39,10 @@
           <el-icon><Document /></el-icon>
           <span>用例管理</span>
         </el-menu-item>
+        <el-menu-item index="/legacy-data" class="menu-item">
+          <el-icon><DataLine /></el-icon>
+          <span>历史用例结果</span>
+        </el-menu-item>
         <el-menu-item index="/users" class="menu-item">
           <el-icon><User /></el-icon>
           <span>用户管理</span>
@@ -131,7 +135,8 @@ import {
   SwitchButton,
   Lock, // 新增锁定图标
   FolderOpened,
-  Cpu
+  Cpu,
+  DataLine
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -153,6 +158,7 @@ const getBreadcrumbTitle = () => {
     '/users': '用户管理',
     '/departments': '部门管理',
     '/test-cases': '用例管理',
+    '/legacy-data': '历史用例结果',
   }
 
   // 动态详情：/test-cases/:id （id 为数字）

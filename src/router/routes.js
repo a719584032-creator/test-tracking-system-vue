@@ -75,6 +75,15 @@ export const routes = [
         }
       },
       {
+        path: 'legacy-data',
+        name: 'LegacyData',
+        component: () => import('../pages/LegacyData/LegacyDataPage.vue'),
+        meta: {
+          title: '历史用例结果',
+          requiresAuth: true
+        }
+      },
+      {
         path: 'test-cases/:id',
         name: 'TestCaseDetail',
         component: () => import('../pages/TestCases/TestCaseDetailPage.vue'),
