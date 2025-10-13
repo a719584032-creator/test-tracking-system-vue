@@ -245,6 +245,7 @@
                 :preview-src-list="previewSrcList"
                 :initial-index="index"
                 fit="cover"
+                @error="() => handleImageError(index)"
               >
                 <template #error>
                   <div class="image-error">加载失败</div>
@@ -264,6 +265,7 @@ import { ElMessage } from 'element-plus'
 import { DataAnalysis, RefreshRight } from '@element-plus/icons-vue'
 import { legacyDataApi } from '@/api/legacyData'
 import { formatDateTime } from '@/utils/format'
+import { apiConfig } from '@/config'
 
 const projects = ref([])
 const plans = ref([])
@@ -288,7 +290,11 @@ const activeCase = ref(null)
 const caseImages = ref([])
 const imagesLoading = ref(false)
 
-const IMAGE_BASE_URL = 'https://patvs.lenovo.com'
+const IMAGE_BASE_URL =
+  import.meta.env.VITE_IMAGE_BASE_URL ||
+  apiConfig.baseURL ||
+  (typeof window !== 'undefined' ? window.location.origin : '') ||
+  'https://patvs.lenovo.com'
 
 const previewSrcList = computed(() => caseImages.value.map((item) => item.url))
 
@@ -361,18 +367,86 @@ const statusSummary = computed(() => {
   return summary
 })
 
-const formatImageUrl = (url) => {
-  if (!url) return ''
-  try {
-    const targetOrigin = new URL(IMAGE_BASE_URL)
-    const parsed = new URL(url, IMAGE_BASE_URL)
-    parsed.protocol = targetOrigin.protocol
-    parsed.hostname = targetOrigin.hostname
-    parsed.port = targetOrigin.port
-    return parsed.toString()
-  } catch (error) {
-    return `${IMAGE_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+const resolveImageUrls = (url) => {
+  if (!url) return []
+
+  const candidates = new Set()
+
+  const ensureAbsoluteUrl = (targetUrl, base) => {
+    try {
+      const parsedBase = new URL(base)
+      const parsed = new URL(targetUrl, parsedBase)
+      parsed.hostname = parsedBase.hostname
+      parsed.port = parsedBase.port
+      return parsed
+    } catch (error) {
+      return null
+    }
   }
+
+  const appendCandidate = (value) => {
+    if (value) {
+      candidates.add(value)
+    }
+  }
+
+  const targetOrigin = (() => {
+    try {
+      return new URL(IMAGE_BASE_URL)
+    } catch (error) {
+      return null
+    }
+  })()
+
+  if (targetOrigin) {
+    const normalized = ensureAbsoluteUrl(url, IMAGE_BASE_URL)
+    if (normalized) {
+      const preferredProtocols = targetOrigin.protocol === 'https:' ? ['https:', 'http:'] : ['http:', 'https:']
+      preferredProtocols.forEach((protocol) => {
+        const candidate = new URL(normalized.toString())
+        candidate.protocol = protocol
+        appendCandidate(candidate.toString())
+      })
+    }
+  }
+
+  if (!candidates.size) {
+    const sanitized = url.startsWith('http')
+      ? url
+      : `${IMAGE_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+    appendCandidate(sanitized)
+    if (sanitized.startsWith('https://')) {
+      appendCandidate(sanitized.replace(/^https:/, 'http:'))
+    } else if (sanitized.startsWith('http://')) {
+      appendCandidate(sanitized.replace(/^http:/, 'https:'))
+    }
+  }
+
+  return Array.from(candidates)
+}
+
+const createImageRecord = (item) => {
+  const urlCandidates = resolveImageUrls(item.url || item.image_url || '')
+  return {
+    ...item,
+    urlCandidates,
+    urlIndex: 0,
+    url: urlCandidates[0] || '',
+  }
+}
+
+const handleImageError = (index) => {
+  const record = caseImages.value[index]
+  if (!record) return
+
+  const nextIndex = record.urlIndex + 1
+  if (nextIndex >= record.urlCandidates.length) return
+
+  caseImages.value.splice(index, 1, {
+    ...record,
+    urlIndex: nextIndex,
+    url: record.urlCandidates[nextIndex],
+  })
 }
 
 const loadProjects = async () => {
@@ -436,10 +510,7 @@ const loadCaseImages = async (executionId) => {
   if (success) {
     const key = String(executionId)
     const rawImages = data?.[key] || []
-    caseImages.value = rawImages.map((item) => ({
-      ...item,
-      url: formatImageUrl(item.url || item.image_url || ''),
-    }))
+    caseImages.value = rawImages.map((item) => createImageRecord(item))
   }
   imagesLoading.value = false
 }
