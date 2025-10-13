@@ -367,7 +367,8 @@ const formatImageUrl = (url) => {
     const targetOrigin = new URL(IMAGE_BASE_URL)
     const parsed = new URL(url, IMAGE_BASE_URL)
     parsed.protocol = targetOrigin.protocol
-    parsed.host = targetOrigin.host
+    parsed.hostname = targetOrigin.hostname
+    parsed.port = targetOrigin.port
     return parsed.toString()
   } catch (error) {
     return `${IMAGE_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
