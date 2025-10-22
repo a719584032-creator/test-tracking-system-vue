@@ -113,25 +113,41 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="优先级">
-          <el-select
-            v-model="caseFilters.priority"
-            placeholder="全部优先级"
-            clearable
-            class="filter-item"
-          >
-            <el-option
-              v-for="option in priorityOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="结果">
-          <el-select
-            v-model="caseFilters.status"
-            placeholder="全部状态"
+      <el-form-item label="优先级">
+        <el-select
+          v-model="caseFilters.priority"
+          placeholder="全部优先级"
+          clearable
+          class="filter-item"
+        >
+          <el-option
+            v-for="option in priorityOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="设备">
+        <el-select
+          v-model="caseFilters.device_model_id"
+          placeholder="全部设备"
+          clearable
+          filterable
+          class="filter-item"
+        >
+          <el-option
+            v-for="option in deviceOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="结果">
+        <el-select
+          v-model="caseFilters.status"
+          placeholder="全部状态"
             clearable
             class="filter-item"
           >
@@ -288,6 +304,7 @@ const caseDetailDialogRef = ref()
 const caseFilters = reactive({
   group_path: '',
   priority: '',
+  device_model_id: '',
   status: '',
   keyword: ''
 })
@@ -295,6 +312,27 @@ const caseFilters = reactive({
 const priorityOptions = ref(TEST_CASE_PRIORITY_OPTIONS.map((option) => ({ ...option })))
 const statusOptions = EXECUTION_RESULT_OPTIONS
 const groupPathOptions = ref([])
+const deviceOptions = computed(() => {
+  const devices = planDetail.value?.device_models || []
+  const map = new Map()
+  devices.forEach((item) => {
+    const id =
+      item.device_model_id || item.device_model?.id || item.id || item.device_model?.device_model_id
+    if (!id) return
+    const normalizedId = Number(id)
+    if (Number.isNaN(normalizedId)) return
+    if (!map.has(normalizedId)) {
+      const name =
+        item.device_model?.name ||
+        item.name ||
+        item.device_model_name ||
+        item.device_name ||
+        `机型#${normalizedId}`
+      map.set(normalizedId, name)
+    }
+  })
+  return Array.from(map, ([value, label]) => ({ value, label }))
+})
 
 /** 将 user_id -> 显示名 做一个映射，方便回退展示执行人 */
 const testerMap = computed(() => {
@@ -436,6 +474,13 @@ const fetchDetail = async () => {
       return
     }
     planDetail.value = response.data
+    if (caseFilters.device_model_id) {
+      const selectedId = Number(caseFilters.device_model_id)
+      const hasDevice = deviceOptions.value.some((option) => option.value === selectedId)
+      if (!hasDevice) {
+        caseFilters.device_model_id = ''
+      }
+    }
   } catch (error) {
     console.error('获取计划详情失败:', error)
   } finally {
@@ -450,6 +495,7 @@ const fetchPlanCases = async () => {
     const params = {
       group_path: caseFilters.group_path,
       priority: caseFilters.priority,
+      device_model_id: caseFilters.device_model_id,
       status: caseFilters.status
     }
     if (caseFilters.keyword) {
@@ -485,6 +531,7 @@ const handleSearch = () => {
 const resetFilters = () => {
   caseFilters.group_path = ''
   caseFilters.priority = ''
+  caseFilters.device_model_id = ''
   caseFilters.status = ''
   caseFilters.keyword = ''
   fetchPlanCases()
@@ -510,6 +557,7 @@ watch(
     const numericId = Number(newId)
     if (!Number.isNaN(numericId)) {
       planId.value = numericId
+      caseFilters.device_model_id = ''
       fetchDetail()
       fetchPlanCases()
     }
@@ -517,7 +565,12 @@ watch(
 )
 
 watch(
-  () => [caseFilters.group_path, caseFilters.priority, caseFilters.status],
+  () => [
+    caseFilters.group_path,
+    caseFilters.priority,
+    caseFilters.device_model_id,
+    caseFilters.status
+  ],
   () => {
     fetchPlanCases()
   }
