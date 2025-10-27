@@ -1,3 +1,11 @@
+const parseBooleanEnv = (value, defaultValue = false) => {
+  if (value === undefined || value === null || value === '') return defaultValue
+  const normalized = String(value).trim().toLowerCase()
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false
+  return defaultValue
+}
+
 // 应用配置
 export const appConfig = {
   // API 相关配置
@@ -21,11 +29,16 @@ export const appConfig = {
     isProd: import.meta.env.PROD,
     mode: import.meta.env.MODE,
     nodeEnv: import.meta.env.NODE_ENV
+  },
+
+  // 功能开关
+  features: {
+    enableResultRecording: parseBooleanEnv(import.meta.env.VITE_ENABLE_RESULT_RECORD, true)
   }
 }
 
 // 导出常用配置
-export const { api: apiConfig, app: appInfo, env: envInfo } = appConfig
+export const { api: apiConfig, app: appInfo, env: envInfo, features: featureFlags } = appConfig
 
 // 开发环境打印配置信息
 if (envInfo.isDev) {
