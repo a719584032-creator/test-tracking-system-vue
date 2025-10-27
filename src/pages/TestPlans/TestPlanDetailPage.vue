@@ -220,12 +220,39 @@
               <span v-if="row.caseInfo.group_path" class="case-meta-divider">|</span>
               <span v-if="row.caseInfo.group_path">目录：{{ formatGroupPathLabel(row.caseInfo.group_path) }}</span>
             </div>
+            <div v-if="row.caseInfo.keywords?.length" class="case-tags">
+              <span class="case-tags-label">关键字：</span>
+              <div class="case-tags-list">
+                <el-tag
+                  v-for="keyword in row.caseInfo.keywords"
+                  :key="keyword"
+                  size="small"
+                  type="info"
+                  effect="plain"
+                >
+                  {{ keyword }}
+                </el-tag>
+              </div>
+            </div>
           </template>
         </el-table-column>
 
         <el-table-column prop="device_model_name" label="执行机型" min-width="180">
           <template #default="{ row }">
             {{ row.device_model_name || row.device_model_code || (row.device_model_id ? `机型 #${row.device_model_id}` : '通用') }}
+          </template>
+        </el-table-column>
+
+        <el-table-column label="用例耗时" min-width="220">
+          <template #default="{ row }">
+            <div class="duration-item">
+              <span class="duration-label">计划：</span>
+              <span>{{ formatWorkloadMinutes(row.caseInfo.workload_minutes) }}</span>
+            </div>
+            <div class="duration-item">
+              <span class="duration-label">实际：</span>
+              <span>{{ formatExecutionDuration(row) }}</span>
+            </div>
           </template>
         </el-table-column>
 
@@ -251,7 +278,12 @@
 
         <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="primary" size="small" @click="openResultDialog(row)">
+            <el-button
+              v-if="enableResultRecording"
+              type="primary"
+              size="small"
+              @click="openResultDialog(row)"
+            >
               记录结果
             </el-button>
             <el-button size="small" @click="openCaseDetail(row)">
@@ -286,6 +318,7 @@ import {
 } from '@/constants/testPlan'
 import { TEST_CASE_PRIORITY_LABEL_MAP, TEST_CASE_PRIORITY_OPTIONS } from '@/constants/testCase'
 import { formatDateTime } from '@/utils/format'
+import { featureFlags } from '@/config'
 import TestPlanResultDialog from '@/components/TestPlans/TestPlanResultDialog.vue'
 import PlanCaseDetailDialog from '@/components/TestPlans/PlanCaseDetailDialog.vue'
 
@@ -300,6 +333,8 @@ const planCases = ref([])
 
 const resultDialogRef = ref()
 const caseDetailDialogRef = ref()
+
+const enableResultRecording = featureFlags.enableResultRecording !== false
 
 const caseFilters = reactive({
   group_path: '',
@@ -382,7 +417,11 @@ const executionRows = computed(() => {
       preconditions: caseItem.preconditions,
       steps: Array.isArray(caseItem.steps) ? caseItem.steps : [],
       expected_result: caseItem.expected_result,
-      latest_result: caseItem.latest_result
+      latest_result: caseItem.latest_result,
+      keywords: Array.isArray(caseItem.keywords)
+        ? caseItem.keywords.map((keyword) => String(keyword).trim()).filter(Boolean)
+        : [],
+      workload_minutes: caseItem.workload_minutes
     }
     if (!executions.length) {
       rows.push({
@@ -402,6 +441,9 @@ const executionRows = computed(() => {
         bug_ref: null,
         run_id: null,
         execution_id: null,
+        duration_ms: null,
+        execution_start_time: null,
+        execution_end_time: null,
         caseInfo
       })
       return
@@ -427,6 +469,9 @@ const executionRows = computed(() => {
         bug_ref: exec.bug_ref,
         run_id: exec.run_id,
         execution_id: exec.id,
+        duration_ms: exec.duration_ms,
+        execution_start_time: exec.execution_start_time,
+        execution_end_time: exec.execution_end_time,
         caseInfo
       })
     })
@@ -440,6 +485,51 @@ const statusLabel = computed(() => resolvePlanStatusLabel(planDetail.value?.stat
 const resolveResultTag = (result) => EXECUTION_RESULT_TAG_MAP[result] || 'info'
 
 const formatDate = (value) => (value ? String(value).slice(0, 10) : '-')
+
+const formatWorkloadMinutes = (value) => {
+  if (value === null || value === undefined || value === '') return '-'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric < 0) return '-'
+  if (numeric === 0) return '0 分钟'
+  if (numeric >= 60) {
+    const hours = Math.floor(numeric / 60)
+    const remainingMinutes = numeric - hours * 60
+    const parts = []
+    if (hours) parts.push(`${hours} 小时`)
+    if (remainingMinutes > 0) {
+      parts.push(
+        Number.isInteger(remainingMinutes)
+          ? `${remainingMinutes} 分钟`
+          : `${remainingMinutes.toFixed(1)} 分钟`
+      )
+    }
+    return parts.join(' ') || '0 分钟'
+  }
+  return Number.isInteger(numeric) ? `${numeric} 分钟` : `${numeric.toFixed(1)} 分钟`
+}
+
+const formatDurationFromMs = (value) => {
+  if (value === null || value === undefined || value === '') return '-'
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric < 0) return '-'
+  if (numeric === 0) return '0 秒'
+  if (numeric >= 60000) {
+    const minutes = numeric / 60000
+    return minutes % 1 === 0 ? `${minutes} 分钟` : `${minutes.toFixed(2)} 分钟`
+  }
+  const seconds = numeric / 1000
+  if (seconds % 1 === 0) {
+    return `${seconds} 秒`
+  }
+  return `${seconds.toFixed(2)} 秒`
+}
+
+const formatExecutionDuration = (row) => {
+  if (!row) return '-'
+  const durationMs = Number(row.duration_ms)
+  if (!Number.isFinite(durationMs) || durationMs < 0) return '-'
+  return formatDurationFromMs(durationMs)
+}
 
 const stripGroupRootPrefix = (path = '') => {
   const normalized = String(path)
@@ -538,6 +628,7 @@ const resetFilters = () => {
 }
 
 const openResultDialog = (row) => {
+  if (!enableResultRecording) return
   resultDialogRef.value?.open(row)
 }
 
@@ -706,6 +797,30 @@ onMounted(() => {
   color: var(--el-text-color-disabled);
 }
 
+.case-tags {
+  margin-top: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.case-tags-label {
+  line-height: 20px;
+}
+
+.case-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.case-tags-list :deep(.el-tag) {
+  margin: 0;
+}
+
 .case-filter-form {
   margin-bottom: 16px;
   display: flex;
@@ -723,6 +838,18 @@ onMounted(() => {
 
 .search-icon {
   color: var(--el-text-color-placeholder);
+}
+
+.duration-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.duration-label {
+  color: var(--el-text-color-secondary);
 }
 
 .case-expand {
