@@ -128,8 +128,9 @@ const onNodeDrop = async (draggingNode, dropNode, type) => {
   const parentId = (type === 'inner')
     ? dropNode.data?.id ?? null
     : (dropNode.parent?.data?.id ?? null)
+  const normalizedParentId = parentId ?? 0
 
-  const resp = await caseGroupService.update(draggingNode.data.id, { parent_id: parentId })
+  const resp = await caseGroupService.update(draggingNode.data.id, { parent_id: normalizedParentId })
   if (resp.success) {
     await fetchGroups()
     await nextTick()
