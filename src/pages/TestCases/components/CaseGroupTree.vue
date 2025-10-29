@@ -229,18 +229,15 @@ defineExpose({ clearSelection, refresh, fetchGroups: refresh })
 /* 行样式 & 高亮 */
 .group-tree :deep(.el-tree-node__content) {
   height: 36px; border-radius: 6px; margin-bottom: 2px; transition: all 0.2s ease;
+  overflow: visible;
 }
 .group-tree :deep(.el-tree-node__content:hover) { background-color: #f0f9ff; }
 .group-tree :deep(.el-tree-node.is-current > .el-tree-node__content) {
   background-color: #e6f4ff; border: 1px solid #91caff; color: #1677ff; font-weight: 500;
 }
 
-/* 每行预留右侧操作区（避免被长标题挤掉） */
-.tree-node {
-  position: relative;
-  display: flex; align-items: center; width: 100%;
-  padding-right: 108px;
-}
+/* 节点内容布局 */
+.tree-node { display: flex; align-items: center; width: 100%; gap: 8px; }
 
 .node-content {
   display: flex; align-items: center; gap: 8px; flex: 1;
@@ -256,8 +253,13 @@ defineExpose({ clearSelection, refresh, fetchGroups: refresh })
 
 /* 操作区（悬浮显示） */
 .node-actions {
-  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  margin-left: auto;
   display: flex; gap: 4px; z-index: 2;
+  flex-shrink: 0;
+  position: sticky;
+  right: 0;
+  padding-left: 8px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, #fff 45%);
 }
 .node-actions .el-button { padding: 4px; border-radius: 4px; }
 .tree-node .node-actions { opacity: 0; pointer-events: none; transition: opacity .15s ease; }
