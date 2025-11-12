@@ -95,17 +95,56 @@
                   </p>
                   <div v-if="execution.attachments?.length" class="execution-attachments">
                     <span class="attachments-label">附件：</span>
-                    <el-space wrap>
-                      <el-link
-                        v-for="file in execution.attachments"
-                        :key="file.id || file.file_path || file.file_name"
-                        :href="file.url || file.file_path"
-                        type="primary"
-                        target="_blank"
+                    <div class="attachment-list">
+                      <div
+                        v-for="(file, fileIndex) in execution.attachments"
+                        :key="resolveAttachmentKey(file, fileIndex)"
+                        class="attachment-item"
                       >
-                        {{ file.file_name || '附件' }}
-                      </el-link>
-                    </el-space>
+                        <template v-if="isImageAttachment(file)">
+                          <el-image
+                            v-if="resolveAttachmentUrl(file)"
+                            class="attachment-thumb"
+                            :src="resolveAttachmentUrl(file)"
+                            fit="cover"
+                            lazy
+                            :preview-src-list="collectImagePreviewList(execution.attachments)"
+                            :initial-index="resolveImagePreviewIndex(execution.attachments, file)"
+                          >
+                            <template #placeholder>
+                              <div class="attachment-thumb attachment-thumb--placeholder">加载中...</div>
+                            </template>
+                            <template #error>
+                              <div class="attachment-thumb attachment-thumb--error">无法预览</div>
+                            </template>
+                          </el-image>
+                          <div v-else class="attachment-thumb attachment-thumb--empty">无预览</div>
+                          <a
+                            v-if="resolveAttachmentUrl(file)"
+                            class="attachment-name attachment-link-text"
+                            :href="resolveAttachmentUrl(file)"
+                            target="_blank"
+                            rel="noopener"
+                          >
+                            {{ resolveAttachmentName(file, fileIndex) }}
+                          </a>
+                          <span v-else class="attachment-name">{{ resolveAttachmentName(file, fileIndex) }}</span>
+                        </template>
+                        <template v-else>
+                          <el-link
+                            v-if="resolveAttachmentUrl(file)"
+                            :href="resolveAttachmentUrl(file)"
+                            type="primary"
+                            target="_blank"
+                            rel="noopener"
+                            :underline="false"
+                          >
+                            {{ resolveAttachmentName(file, fileIndex) }}
+                          </el-link>
+                          <span v-else class="attachment-name">{{ resolveAttachmentName(file, fileIndex) }}</span>
+                        </template>
+                      </div>
+                    </div>
                   </div>
 
                   <div v-if="execution.history?.length" class="execution-history">
@@ -134,17 +173,56 @@
                           </p>
                           <div v-if="log.attachments?.length" class="history-attachments">
                             <span class="attachments-label">附件：</span>
-                            <el-space wrap>
-                              <el-link
-                                v-for="file in log.attachments"
-                                :key="file.id || file.file_path || file.file_name"
-                                :href="file.url || file.file_path"
-                                type="primary"
-                                target="_blank"
+                            <div class="attachment-list">
+                              <div
+                                v-for="(file, fileIndex) in log.attachments"
+                                :key="resolveAttachmentKey(file, fileIndex)"
+                                class="attachment-item"
                               >
-                                {{ file.file_name || '附件' }}
-                              </el-link>
-                            </el-space>
+                                <template v-if="isImageAttachment(file)">
+                                  <el-image
+                                    v-if="resolveAttachmentUrl(file)"
+                                    class="attachment-thumb"
+                                    :src="resolveAttachmentUrl(file)"
+                                    fit="cover"
+                                    lazy
+                                    :preview-src-list="collectImagePreviewList(log.attachments)"
+                                    :initial-index="resolveImagePreviewIndex(log.attachments, file)"
+                                  >
+                                    <template #placeholder>
+                                      <div class="attachment-thumb attachment-thumb--placeholder">加载中...</div>
+                                    </template>
+                                    <template #error>
+                                      <div class="attachment-thumb attachment-thumb--error">无法预览</div>
+                                    </template>
+                                  </el-image>
+                                  <div v-else class="attachment-thumb attachment-thumb--empty">无预览</div>
+                                  <a
+                                    v-if="resolveAttachmentUrl(file)"
+                                    class="attachment-name attachment-link-text"
+                                    :href="resolveAttachmentUrl(file)"
+                                    target="_blank"
+                                    rel="noopener"
+                                  >
+                                    {{ resolveAttachmentName(file, fileIndex) }}
+                                  </a>
+                                  <span v-else class="attachment-name">{{ resolveAttachmentName(file, fileIndex) }}</span>
+                                </template>
+                                <template v-else>
+                                  <el-link
+                                    v-if="resolveAttachmentUrl(file)"
+                                    :href="resolveAttachmentUrl(file)"
+                                    type="primary"
+                                    target="_blank"
+                                    rel="noopener"
+                                    :underline="false"
+                                  >
+                                    {{ resolveAttachmentName(file, fileIndex) }}
+                                  </el-link>
+                                  <span v-else class="attachment-name">{{ resolveAttachmentName(file, fileIndex) }}</span>
+                                </template>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </el-collapse-item>
@@ -207,6 +285,36 @@ const formatGroupPathLabel = (path) => {
   if (!path) return ''
   const stripped = stripGroupRootPrefix(path)
   return stripped || '根目录'
+}
+
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg']
+
+const resolveAttachmentUrl = (file) => file?.url || file?.file_url || file?.file_path || file?.preview_url || ''
+
+const resolveAttachmentName = (file, index) => file?.file_name || file?.name || `附件${index + 1}`
+
+const resolveAttachmentKey = (file, index) =>
+  file?.id ?? file?.file_path ?? `${file?.file_name || 'attachment'}-${index}`
+
+const isImageAttachment = (file) => {
+  const contentType = (file?.content_type || file?.mime_type || file?.file_type || '').toLowerCase()
+  if (contentType.startsWith('image/')) return true
+  const fileName = (file?.file_name || file?.name || '').toLowerCase()
+  return IMAGE_EXTENSIONS.some((ext) => fileName.endsWith(ext))
+}
+
+const collectImagePreviewList = (files = []) =>
+  files
+    .filter((item) => isImageAttachment(item))
+    .map((item) => resolveAttachmentUrl(item))
+    .filter(Boolean)
+
+const resolveImagePreviewIndex = (files = [], targetFile) => {
+  const targetUrl = resolveAttachmentUrl(targetFile)
+  if (!targetUrl) return 0
+  const previewList = collectImagePreviewList(files)
+  const index = previewList.indexOf(targetUrl)
+  return index >= 0 ? index : 0
 }
 
 const resolveDeviceLabel = (execution) => {
@@ -394,13 +502,66 @@ defineExpose({ open, close })
 .execution-attachments,
 .history-attachments {
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 .attachments-label {
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+  max-width: 160px;
+  width: 140px;
+  align-items: flex-start;
+}
+
+.attachment-thumb {
+  width: 140px;
+  height: 90px;
+  border-radius: 6px;
+  background-color: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-light);
+  overflow: hidden;
+}
+
+.attachment-thumb :deep(img) {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.attachment-thumb--placeholder,
+.attachment-thumb--error,
+.attachment-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.attachment-name {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+.attachment-link-text {
+  color: var(--el-color-primary);
+  text-decoration: none;
 }
 
 .execution-history {
