@@ -228,6 +228,10 @@ const getRoleLabel = (role) => {
 // 角色 tag 颜色
 const getRoleTagType = (role) => {
   const typeMap = {
+    sys_admin: 'danger',
+    sys_operator: 'warning',
+    sys_viewer: 'info',
+    // 兼容旧角色
     admin: 'danger',
     dept_admin: 'warning',
     project_admin: 'info',

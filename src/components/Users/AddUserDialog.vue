@@ -96,7 +96,7 @@ const formData = reactive({
   password: '',
   email: '',
   phone: '',
-  role: 'user' // 默认为普通用户
+  role: 'sys_viewer' // 默认创建系统观察员
 })
 
 const rules = {
@@ -155,7 +155,7 @@ const resetForm = () => {
     password: '',
     email: '',
     phone: '',
-    role: 'user'
+    role: 'sys_viewer'
   })
 }
 

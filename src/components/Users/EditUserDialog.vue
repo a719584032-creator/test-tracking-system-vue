@@ -86,7 +86,7 @@ const userInfo = ref({})
 const formData = reactive({
   email: '',
   phone: '',
-  role: ''
+  role: 'sys_viewer'
 })
 
 const rules = {
@@ -124,7 +124,7 @@ const open = (user) => {
   userInfo.value = { ...user }
   formData.email = user.email || ''
   formData.phone = user.phone || ''
-  formData.role = user.role || ''
+  formData.role = user.role || 'sys_viewer'
   dialogVisible.value = true
 }
 
@@ -139,7 +139,7 @@ const resetForm = () => {
   Object.assign(formData, {
     email: '',
     phone: '',
-    role: ''
+    role: 'sys_viewer'
   })
   userInfo.value = {}
 }
