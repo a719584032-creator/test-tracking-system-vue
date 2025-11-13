@@ -43,7 +43,11 @@
           <el-icon><DataLine /></el-icon>
           <span>历史用例结果</span>
         </el-menu-item>
-        <el-menu-item index="/users" class="menu-item">
+        <el-menu-item
+          v-if="isSysAdmin"
+          index="/users"
+          class="menu-item"
+        >
           <el-icon><User /></el-icon>
           <span>用户管理</span>
         </el-menu-item>
@@ -147,6 +151,7 @@ const auth = useAuthStore()
 const changePasswordVisible = ref(false)
 
 const activeMenu = computed(() => route.path)
+const isSysAdmin = computed(() => auth.role === 'sys_admin')
 
 // 获取面包屑标题
 const getBreadcrumbTitle = () => {
