@@ -52,7 +52,7 @@ export const routes = [
         meta:{
           title: '用户管理',
           requiresAuth: true,
-          roles: ['admin'] // 路由守卫中校验
+          roles: ['sys_admin'] // 系统管理员专属
         },
       },
       {

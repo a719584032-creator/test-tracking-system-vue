@@ -19,11 +19,11 @@ export const DEPARTMENT_ROLES = [
   { label: '部门管理员', value: 'dept_admin' }
 ]
 
-// 部门角色标签映射
+// 部门角色标签映射（使用最新的后端角色编码）
 export const DEPARTMENT_ROLE_LABEL_MAP = {
-  member: '普通成员',
-  project_admin: '项目管理员',
-  admin: '部门管理员'
+  dept_member: '普通成员',
+  dept_project_admin: '项目管理员',
+  dept_admin: '部门管理员'
 }
 
 // 成员状态选项（预留）

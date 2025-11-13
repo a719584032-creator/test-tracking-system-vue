@@ -20,9 +20,13 @@ export function setupRouterGuards(router) {
       return
     }
 
-    // 用户管理界面
-    if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role)) {
-      return { path: '/403' } // 或者重定向
+    // 角色权限控制
+    if (Array.isArray(to.meta.roles) && to.meta.roles.length > 0) {
+      const userRole = auth.role
+      if (!userRole || !to.meta.roles.includes(userRole)) {
+        next('/dashboard')
+        return
+      }
     }
     next()
   })
