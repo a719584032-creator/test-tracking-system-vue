@@ -91,9 +91,18 @@ http.interceptors.response.use(
     const status = error.response?.status
     if (status === 401) {
       const auth = useAuthStore()
-      auth.logout()
-      router.push('/login')
-      ElMessage.error('登录已过期，请重新登录')
+      const backendMessage = error.response?.data?.message
+      const requestPath = (error.config?.url || '').toLowerCase()
+      const isLoginRequest = requestPath.includes('/auth/login')
+
+      if (isLoginRequest) {
+        // 登录接口认证失败时，直接展示后端返回的错误信息
+        ElMessage.error(backendMessage || '用户名或密码错误')
+      } else {
+        auth.logout()
+        router.push('/login')
+        ElMessage.error(backendMessage || '登录已过期，请重新登录')
+      }
     } else if (status === 403) {
       ElMessage.error('权限不足，无法访问该资源')
     } else if (status === 404) {
