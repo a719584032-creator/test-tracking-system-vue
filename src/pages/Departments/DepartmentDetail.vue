@@ -110,7 +110,11 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="department_member_id" label="成员ID" width="90">
+          <template #default="{ row }">
+            {{ row.department_member_id || '-' }}
+          </template>
+        </el-table-column>
 
         <el-table-column prop="username" label="用户名" min-width="120" />
 
@@ -126,10 +130,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="role" label="部门角色" width="120" align="center">
+        <el-table-column prop="department_role" label="部门角色" width="140" align="center">
           <template #default="{ row }">
-            <el-tag :type="getRoleTagType(row.role)">
-              {{ row.role_label || '-' }}
+            <el-tag :type="getRoleTagType(row.department_role || row.role)">
+              {{ row.department_role_label || row.role_label || '-' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -185,8 +189,8 @@
     <!-- 成员管理对话框 -->
     <ManageMembersDialog ref="manageMembersDialogRef" @success="handleRefresh" />
     
-    <!-- 编辑用户对话框 -->
-    <EditUserDialog ref="editUserDialogRef" @success="handleRefresh" />
+    <!-- 编辑成员角色对话框 -->
+    <EditMemberRoleDialog ref="editMemberRoleDialogRef" @success="handleRefresh" />
   </div>
 </template>
 
@@ -195,9 +199,8 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
-// 正确引用组件
 import ManageMembersDialog from '@/components/Departments/ManageMembersDialog.vue'
-import EditUserDialog from '@/components/Users/EditUserDialog.vue'
+import EditMemberRoleDialog from '@/components/Departments/EditMemberRoleDialog.vue'
 import { departmentService } from '@/api/departments'
 import { formatDateTime } from '@/utils/format'
 import { MEMBER_STATUS_OPTIONS } from '@/constants/department'
@@ -208,7 +211,7 @@ const loading = ref(false)
 const departmentInfo = ref({})
 const memberList = ref([])
 const manageMembersDialogRef = ref()
-const editUserDialogRef = ref()
+const editMemberRoleDialogRef = ref()
 
 const departmentId = computed(() => parseInt(route.params.id))
 
@@ -238,15 +241,18 @@ const getStatusLabel = (active) => {
   return active ? '正常' : '禁用'
 }
 
-// 角色标签颜色
+// 部门角色标签颜色，兼容旧字段
 const getRoleTagType = (role) => {
+  const roleKey = role || ''
   const roleTypes = {
-    'admin': 'warning',
-    'dept_admin': 'warning',
-    'project_admin': 'warning',
-    'member': 'info'
+    admin: 'warning',
+    dept_admin: 'warning',
+    dept_project_admin: 'warning',
+    project_admin: 'warning',
+    dept_member: 'info',
+    member: 'info'
   }
-  return roleTypes[role] || 'info'
+  return roleTypes[roleKey] || 'info'
 }
 
 
@@ -310,9 +316,9 @@ const handleManageMembers = () => {
   manageMembersDialogRef.value?.open(departmentInfo.value)
 }
 
-// 编辑成员（打开编辑用户对话框）
+// 编辑成员角色
 const handleEditMember = (member) => {
-  editUserDialogRef.value?.open(member)
+  editMemberRoleDialogRef.value?.open(member)
 }
 
 // 移除成员
