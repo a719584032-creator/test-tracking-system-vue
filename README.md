@@ -277,6 +277,33 @@ export const exportPlan = (id) => http.get(`/plans/${id}/export`, { responseType
 
 ---
 
+## 🚀 运行与部署
+
+### 本地运行
+1. 安装依赖：`npm install`
+2. 复制或调整 `.env.development`
+3. 开发服务器：`npm run dev`（默认 http://localhost:5173）
+
+### 生产部署到 `/new/`
+1. 确认 `.env.production` 中的接口域名等配置，必要时新增 `VITE_DEPLOY_BASE=/new/` 以覆盖默认部署路径。
+2. 构建静态资源：`npm run build`，产物位于 `dist/`。
+3. 将 `dist` 内容同步到服务器（示例：`/home/Admin/TTS/new-frontend/`），并确保目录拥有 nginx 账户的读取权限。
+4. 更新 nginx，把 `/new/` 映射到静态目录，并为 SPA 配置 `try_files` 回退：
+
+   ```nginx
+   location /new/ {
+       alias /home/Admin/TTS/new-frontend/;
+       try_files $uri $uri/ /new/index.html;
+   }
+   ```
+
+   其它端口代理保持不变，例如 `/` 仍转发到旧项目、`/api` 对接后端接口。
+5. 重新加载 nginx：`sudo nginx -t && sudo systemctl reload nginx`。
+
+完成后访问 `https://patvs.lenovo.com/new/` 即可加载前端，接口请求会指向 `.env.production` 中配置的后端（默认 `https://patvs.lenovo.com/api`）。
+
+---
+
 ## 🧭 ASCII 架构图
 
 ```
@@ -317,5 +344,4 @@ export const exportPlan = (id) => http.get(`/plans/${id}/export`, { responseType
 3. PR：附变更说明与截图/测试结果
 
 ---
-
 

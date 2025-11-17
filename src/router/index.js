@@ -4,7 +4,7 @@ import { routes } from './routes'
 import { useAuthStore } from '@/stores/modules/auth'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 
@@ -19,4 +19,3 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
-
