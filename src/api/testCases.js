@@ -109,15 +109,22 @@ export const testCaseService = {
   copy: (caseId, payload) => handleRequest(copyTestCase, [caseId, payload], '复制用例失败'),
 
   /** 通过文件导入用例 */
-  batchImportFromFile: ({ department_id: departmentId, group_id: groupId, file }) => {
+  batchImportFromFile: ({ department_id: departmentId, group_id: groupId, files }) => {
     if (!departmentId) {
       return Promise.resolve({ success: false, message: '部门ID不能为空', data: null })
+    }
+
+    const uploadFiles = Array.isArray(files) ? files.filter(Boolean) : (files ? [files] : [])
+    if (!uploadFiles.length) {
+      return Promise.resolve({ success: false, message: '请至少上传一个文件', data: null })
     }
 
     const formData = new FormData()
     formData.append('department_id', departmentId)
     if (groupId) formData.append('group_id', groupId)
-    formData.append('file', file)
+    uploadFiles.forEach(file => {
+      formData.append('files', file)
+    })
 
     const config = { headers: { 'Content-Type': 'multipart/form-data' } }
     return handleRequest(batchImportTestCases, [formData, config], '导入用例失败')

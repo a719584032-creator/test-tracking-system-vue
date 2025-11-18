@@ -198,12 +198,12 @@
           />
         </el-form-item>
 
-        <el-form-item label="用例文件" prop="file">
+        <el-form-item label="用例文件" prop="files">
           <el-upload
             drag
             :auto-upload="false"
             :file-list="importFileList"
-            :limit="1"
+            multiple
             accept=".xls,.xlsx,.csv,.json,.zip"
             @change="handleFileChange"
             @remove="handleFileRemove"
@@ -387,12 +387,12 @@ const treeSelectProps = { value: 'value', label: 'label', children: 'children' }
 const importForm = reactive({
   department_id: null,
   group_id: null,
-  file: null
+  files: []
 })
 
 const importRules = {
   department_id: [{ required: true, message: '请选择部门', trigger: 'change' }],
-  file: [{ required: true, message: '请上传用例文件', trigger: 'change' }]
+  files: [{ required: true, message: '请上传用例文件', trigger: 'change' }]
 }
 
 const transformGroupOptions = (nodes = []) =>
@@ -427,7 +427,7 @@ const openImportDialog = async () => {
   Object.assign(importForm, {
     department_id: departmentId.value,
     group_id: filters.value.group_id || null,
-    file: null
+    files: []
   })
   importFileList.value = []
   importDialogVisible.value = true
@@ -437,15 +437,15 @@ const openImportDialog = async () => {
 }
 
 const handleFileChange = (uploadFile, uploadFiles) => {
-  importForm.file = uploadFile?.raw || null
+  importForm.files = uploadFiles ? uploadFiles.map(item => item.raw).filter(Boolean) : []
   importFileList.value = uploadFiles ? [...uploadFiles] : []
-  importFormRef.value?.validateField?.('file')
+  importFormRef.value?.validateField?.('files')
 }
 
-const handleFileRemove = () => {
-  importForm.file = null
-  importFileList.value = []
-  importFormRef.value?.validateField?.('file')
+const handleFileRemove = (uploadFile, uploadFiles) => {
+  importForm.files = uploadFiles ? uploadFiles.map(item => item.raw).filter(Boolean) : []
+  importFileList.value = uploadFiles ? [...uploadFiles] : []
+  importFormRef.value?.validateField?.('files')
 }
 
 const resolveImportMessage = (resp) => {
@@ -472,7 +472,7 @@ const submitImport = () => {
   if (!importFormRef.value) return
   importFormRef.value.validate(async (valid) => {
     if (!valid) return
-    if (!importForm.file) {
+    if (!importForm.files || importForm.files.length === 0) {
       ElMessage.error('请上传用例文件')
       return
     }
@@ -481,7 +481,7 @@ const submitImport = () => {
       const resp = await testCaseService.batchImportFromFile({
         department_id: importForm.department_id,
         group_id: importForm.group_id,
-        file: importForm.file
+        files: importForm.files
       })
       if (resp.success) {
         ElMessage.success(resolveImportMessage(resp))
@@ -500,7 +500,7 @@ const resetImportForm = () => {
   Object.assign(importForm, {
     department_id: departmentId.value || null,
     group_id: filters.value.group_id || null,
-    file: null
+    files: []
   })
   importFormRef.value = null
 }
