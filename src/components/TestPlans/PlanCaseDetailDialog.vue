@@ -8,6 +8,27 @@
     class="plan-case-detail-dialog"
   >
     <div class="case-detail-body" v-loading="loading">
+      <div class="case-detail-toolbar">
+        <span class="toolbar-label">查看设备</span>
+        <el-select
+          v-model="selectedDeviceId"
+          placeholder="全部设备"
+          size="small"
+          clearable
+          filterable
+          class="device-filter-select"
+          @change="handleDeviceFilterChange"
+          @clear="handleDeviceFilterChange(null)"
+        >
+          <el-option
+            v-for="option in deviceFilterOptions"
+            :key="option.value ?? 'all'"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
+
       <template v-if="caseDetail">
         <el-descriptions :column="2" border class="case-summary">
           <el-descriptions-item label="用例标题" :span="2">
@@ -249,13 +270,15 @@ import { TEST_CASE_PRIORITY_LABEL_MAP } from '@/constants/testCase'
 import { formatDateTime } from '@/utils/format'
 
 const props = defineProps({
-  planId: { type: Number, required: true }
+  planId: { type: Number, required: true },
+  deviceOptions: { type: Array, default: () => [] }
 })
 
 const visible = ref(false)
 const loading = ref(false)
 const caseDetail = ref(null)
 const currentPlanCaseId = ref(null)
+const selectedDeviceId = ref(null)
 
 const dialogTitle = computed(() => {
   if (!caseDetail.value?.title) return '用例详情'
@@ -272,6 +295,12 @@ const resolveResultTag = (result) => EXECUTION_RESULT_TAG_MAP[result] || 'info'
 const resolvePriorityLabel = (priority) => {
   if (!priority) return '-'
   return TEST_CASE_PRIORITY_LABEL_MAP[priority] || priority
+}
+
+const normalizeDeviceId = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
 }
 
 const stripGroupRootPrefix = (path = '') => {
@@ -329,6 +358,38 @@ const resolveDeviceLabel = (execution) => {
   return '通用'
 }
 
+const deviceFilterOptions = computed(() => {
+  const map = new Map()
+  const addOption = (value, label) => {
+    if (value === null || value === undefined) return
+    const numericValue = Number(value)
+    if (!Number.isFinite(numericValue) || map.has(numericValue)) return
+    map.set(numericValue, label || `机型 #${numericValue}`)
+  }
+
+  const baseOptions = Array.isArray(props.deviceOptions) ? props.deviceOptions : []
+  baseOptions.forEach((option) => addOption(option.value, option.label))
+
+  const executions = Array.isArray(caseDetail.value?.execution_results)
+    ? caseDetail.value.execution_results
+    : []
+  executions.forEach((execution) => {
+    const deviceId = normalizeDeviceId(
+      execution.device_model_id || execution.plan_device_model_id || execution.device_model?.id
+    )
+    if (deviceId !== null && !map.has(deviceId)) {
+      addOption(deviceId, resolveDeviceLabel(execution))
+    }
+  })
+
+  const currentSelectedId = normalizeDeviceId(selectedDeviceId.value)
+  if (currentSelectedId !== null && !map.has(currentSelectedId)) {
+    addOption(currentSelectedId, `机型 #${currentSelectedId}`)
+  }
+
+  return [{ value: null, label: '全部设备' }, ...Array.from(map, ([value, label]) => ({ value, label }))]
+})
+
 const resolveExecutorName = (executedBy) => {
   if (!executedBy) return '-'
   if (typeof executedBy === 'object') return executedBy.username || executedBy.name || '-'
@@ -364,7 +425,12 @@ const fetchCaseDetail = async () => {
   if (!props.planId || !currentPlanCaseId.value) return
   loading.value = true
   try {
-    const response = await testPlansApi.getCaseDetail(props.planId, currentPlanCaseId.value)
+    const params = {}
+    const deviceModelId = normalizeDeviceId(selectedDeviceId.value)
+    if (deviceModelId !== null) {
+      params.device_model_id = deviceModelId
+    }
+    const response = await testPlansApi.getCaseDetail(props.planId, currentPlanCaseId.value, params)
     if (!response?.success) return
     caseDetail.value = response.data || null
   } catch (error) {
@@ -375,12 +441,18 @@ const fetchCaseDetail = async () => {
   }
 }
 
-const open = (planCaseId) => {
+const handleDeviceFilterChange = (value) => {
+  selectedDeviceId.value = normalizeDeviceId(value)
+  fetchCaseDetail()
+}
+
+const open = (planCaseId, deviceModelId = null) => {
   if (!planCaseId) {
     ElMessage.warning('未找到对应的计划用例')
     return
   }
   currentPlanCaseId.value = planCaseId
+  selectedDeviceId.value = normalizeDeviceId(deviceModelId)
   visible.value = true
   fetchCaseDetail()
 }
@@ -388,6 +460,7 @@ const open = (planCaseId) => {
 const close = () => {
   visible.value = false
   caseDetail.value = null
+  selectedDeviceId.value = null
 }
 
 defineExpose({ open, close })
@@ -401,6 +474,23 @@ defineExpose({ open, close })
 
 .case-detail-body {
   min-height: 240px;
+}
+
+.case-detail-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.toolbar-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.device-filter-select {
+  width: 220px;
 }
 
 .case-summary {

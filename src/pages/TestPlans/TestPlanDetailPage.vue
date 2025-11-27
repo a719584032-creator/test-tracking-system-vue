@@ -299,7 +299,11 @@
       :plan-id="planId"
       @success="handleResultSaved"
     />
-    <PlanCaseDetailDialog ref="caseDetailDialogRef" :plan-id="planId" />
+    <PlanCaseDetailDialog
+      ref="caseDetailDialogRef"
+      :plan-id="planId"
+      :device-options="deviceOptions"
+    />
   </div>
 </template>
 
@@ -634,7 +638,8 @@ const openResultDialog = (row) => {
 
 const openCaseDetail = (row) => {
   const planCaseId = row.caseInfo?.plan_case_id || row.plan_case_internal_id || row.plan_case_id
-  caseDetailDialogRef.value?.open(planCaseId)
+  const deviceModelId = row.device_model_id ?? row.plan_device_model_id ?? null
+  caseDetailDialogRef.value?.open(planCaseId, deviceModelId)
 }
 
 const handleResultSaved = async () => {
