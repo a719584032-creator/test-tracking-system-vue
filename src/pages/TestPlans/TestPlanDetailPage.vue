@@ -92,7 +92,7 @@
       <template #header>
         <div class="card-header">
           <h3>计划用例</h3>
-          <span class="card-sub">共 {{ planCases.length }} 条用例</span>
+          <span class="card-sub">共 {{ totalExecutionRows }} 条执行记录 / {{ planCases.length }} 条用例</span>
         </div>
       </template>
 
@@ -181,7 +181,7 @@
 
       <el-table
         v-loading="casesLoading"
-        :data="executionRows"
+        :data="paginatedRows"
         stripe
         empty-text="暂无用例数据"
       >
@@ -292,6 +292,18 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="casePage"
+          v-model:page-size="casePageSize"
+          :total="totalExecutionRows"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="handleCasePageChange"
+          @size-change="handleCasePageSizeChange"
+        />
+      </div>
     </el-card>
 
     <TestPlanResultDialog
@@ -334,6 +346,9 @@ const planLoading = ref(false)
 const casesLoading = ref(false)
 const planDetail = ref(null)
 const planCases = ref([])
+const executionRows = ref([])
+const casePage = ref(1)
+const casePageSize = ref(20)
 
 const resultDialogRef = ref()
 const caseDetailDialogRef = ref()
@@ -405,82 +420,11 @@ const deviceNames = computed(() => {
     .join('、')
 })
 
-/** 展平 cases -> execution_results 为表格行 */
-const executionRows = computed(() => {
-  const cases = planCases.value
-  if (!cases?.length) return []
-  const rows = []
-  cases.forEach((caseItem) => {
-    const executions = Array.isArray(caseItem.execution_results) ? caseItem.execution_results : []
-    const caseInfo = {
-      plan_case_id: caseItem.id,
-      case_id: caseItem.case_id,
-      title: caseItem.title,
-      priority: caseItem.priority,
-      group_path: caseItem.group_path,
-      preconditions: caseItem.preconditions,
-      steps: Array.isArray(caseItem.steps) ? caseItem.steps : [],
-      expected_result: caseItem.expected_result,
-      latest_result: caseItem.latest_result,
-      keywords: Array.isArray(caseItem.keywords)
-        ? caseItem.keywords.map((keyword) => String(keyword).trim()).filter(Boolean)
-        : [],
-      workload_minutes: caseItem.workload_minutes
-    }
-    if (!executions.length) {
-      rows.push({
-        case_id: caseItem.case_id,
-        case_title: caseItem.title,
-        plan_case_id: caseItem.id,
-        result: caseItem.latest_result,
-        executed_at: null,
-        executed_by: null,
-        executed_by_name: null,
-        device_model_id: null,
-        device_model_name: null,
-        device_model_code: null,
-        plan_device_model_id: null,
-        remark: null,
-        failure_reason: null,
-        bug_ref: null,
-        run_id: null,
-        execution_id: null,
-        duration_ms: null,
-        execution_start_time: null,
-        execution_end_time: null,
-        caseInfo
-      })
-      return
-    }
-    executions.forEach((exec) => {
-      rows.push({
-        case_id: caseItem.case_id,
-        case_title: caseItem.title,
-        plan_case_id: exec.plan_case_id || caseItem.id,
-        plan_case_internal_id: caseItem.id,
-        device_model_id: exec.device_model_id,
-        device_model_name:
-          exec.device_model?.name || exec.device_model?.device_model?.name || exec.device_model_name,
-        device_model_code:
-          exec.device_model?.model_code || exec.device_model?.device_model?.model_code || exec.device_model_code,
-        plan_device_model_id: exec.plan_device_model_id,
-        result: exec.result,
-        executed_at: exec.executed_at,
-        executed_by: exec.executed_by,
-        executed_by_name: exec.executed_by_name,
-        remark: exec.remark,
-        failure_reason: exec.failure_reason,
-        bug_ref: exec.bug_ref,
-        run_id: exec.run_id,
-        execution_id: exec.id,
-        duration_ms: exec.duration_ms,
-        execution_start_time: exec.execution_start_time,
-        execution_end_time: exec.execution_end_time,
-        caseInfo
-      })
-    })
-  })
-  return rows
+const totalExecutionRows = computed(() => executionRows.value.length)
+
+const paginatedRows = computed(() => {
+  const start = (casePage.value - 1) * casePageSize.value
+  return executionRows.value.slice(start, start + casePageSize.value)
 })
 
 const statusTag = computed(() => TEST_PLAN_STATUS_TAG_MAP[planDetail.value?.status] || 'info')
@@ -582,6 +526,82 @@ const fetchDetail = async () => {
   }
 }
 
+const buildExecutionRows = (cases) => {
+  if (!cases?.length) return []
+  const rows = []
+  cases.forEach((caseItem) => {
+    const executions = Array.isArray(caseItem.execution_results) ? caseItem.execution_results : []
+    const caseInfo = {
+      plan_case_id: caseItem.id,
+      case_id: caseItem.case_id,
+      title: caseItem.title,
+      priority: caseItem.priority,
+      group_path: caseItem.group_path,
+      preconditions: caseItem.preconditions,
+      steps: Array.isArray(caseItem.steps) ? caseItem.steps : [],
+      expected_result: caseItem.expected_result,
+      latest_result: caseItem.latest_result,
+      keywords: Array.isArray(caseItem.keywords)
+        ? caseItem.keywords.map((keyword) => String(keyword).trim()).filter(Boolean)
+        : [],
+      workload_minutes: caseItem.workload_minutes
+    }
+    if (!executions.length) {
+      rows.push({
+        case_id: caseItem.case_id,
+        case_title: caseItem.title,
+        plan_case_id: caseItem.id,
+        result: caseItem.latest_result,
+        executed_at: null,
+        executed_by: null,
+        executed_by_name: null,
+        device_model_id: null,
+        device_model_name: null,
+        device_model_code: null,
+        plan_device_model_id: null,
+        remark: null,
+        failure_reason: null,
+        bug_ref: null,
+        run_id: null,
+        execution_id: null,
+        duration_ms: null,
+        execution_start_time: null,
+        execution_end_time: null,
+        caseInfo
+      })
+      return
+    }
+    executions.forEach((exec) => {
+      rows.push({
+        case_id: caseItem.case_id,
+        case_title: caseItem.title,
+        plan_case_id: exec.plan_case_id || caseItem.id,
+        plan_case_internal_id: caseItem.id,
+        device_model_id: exec.device_model_id,
+        device_model_name:
+          exec.device_model?.name || exec.device_model?.device_model?.name || exec.device_model_name,
+        device_model_code:
+          exec.device_model?.model_code || exec.device_model?.device_model?.model_code || exec.device_model_code,
+        plan_device_model_id: exec.plan_device_model_id,
+        result: exec.result,
+        executed_at: exec.executed_at,
+        executed_by: exec.executed_by,
+        executed_by_name: exec.executed_by_name,
+        remark: exec.remark,
+        failure_reason: exec.failure_reason,
+        bug_ref: exec.bug_ref,
+        run_id: exec.run_id,
+        execution_id: exec.id,
+        duration_ms: exec.duration_ms,
+        execution_start_time: exec.execution_start_time,
+        execution_end_time: exec.execution_end_time,
+        caseInfo
+      })
+    })
+  })
+  return rows
+}
+
 const fetchPlanCases = async () => {
   if (!planId.value) return
   casesLoading.value = true
@@ -599,6 +619,8 @@ const fetchPlanCases = async () => {
     if (!response?.success) return
     const cases = Array.isArray(response.data?.cases) ? response.data.cases : []
     planCases.value = cases
+    executionRows.value = buildExecutionRows(cases)
+    casePage.value = 1
     const uniquePaths = new Set(groupPathOptions.value)
     const uniquePriorities = new Map(priorityOptions.value.map((option) => [option.value, option.label]))
     cases.forEach((item) => {
@@ -619,6 +641,7 @@ const fetchPlanCases = async () => {
 }
 
 const handleSearch = () => {
+  casePage.value = 1
   fetchPlanCases()
 }
 
@@ -628,6 +651,7 @@ const resetFilters = () => {
   caseFilters.device_model_id = ''
   caseFilters.status = ''
   caseFilters.keyword = ''
+  casePage.value = 1
   fetchPlanCases()
 }
 
@@ -645,6 +669,15 @@ const openCaseDetail = (row) => {
 const handleResultSaved = async () => {
   await fetchDetail()
   await fetchPlanCases()
+}
+
+const handleCasePageChange = (page) => {
+  casePage.value = page
+}
+
+const handleCasePageSizeChange = (size) => {
+  casePageSize.value = size
+  casePage.value = 1
 }
 
 watch(
@@ -668,6 +701,7 @@ watch(
     caseFilters.status
   ],
   () => {
+    casePage.value = 1
     fetchPlanCases()
   }
 )
@@ -893,5 +927,11 @@ onMounted(() => {
 .step-note {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 </style>

@@ -299,7 +299,9 @@
               <el-table-column label="兼容性测试" width="150" align="center">
                 <template #default="{ row }">
                   <el-switch
-                    v-model="row.compatibility"
+                    :model-value="!!row.compatibility_testing"
+                    :loading="compatibilityLoading[row.id]"
+                    @change="(val) => handleCaseCompatibilityToggle(row, val)"
                   />
                 </template>
               </el-table-column>
@@ -387,6 +389,7 @@ const departmentOptions = ref([])
 const projectOptions = ref([])
 const testerOptions = ref([])
 const deviceOptions = ref([])
+const compatibilityLoading = reactive({})
 
 const optionsLoading = reactive({
   departments: false,
@@ -472,6 +475,9 @@ const resetState = () => {
   selectedCasesMap.clear()
   manualSelection.value = new Set()
   caseTab.value = 'groups'
+  Object.keys(compatibilityLoading).forEach((key) => {
+    delete compatibilityLoading[key]
+  })
 
   caseTable.list = []
   caseTable.page = 1
@@ -619,11 +625,14 @@ const addCaseToSelection = (caseItem, { manual = false, groupId } = {}) => {
       caseInfo: { ...caseItem },
       groupIds: new Set(),
       manual: false,
-      compatibility: true
+      compatibility_testing: caseItem.compatibility_testing ?? true
     }
     selectedCasesMap.set(id, entry)
   } else {
     entry.caseInfo = { ...entry.caseInfo, ...caseItem }
+    if (caseItem.compatibility_testing !== undefined) {
+      entry.compatibility_testing = caseItem.compatibility_testing
+    }
   }
   if (manual) entry.manual = true
   if (groupId) entry.groupIds.add(Number(groupId))
@@ -845,6 +854,40 @@ const removeCase = (caseId) => {
     manualSelection.value = new Set(manualSelection.value)
     syncTableSelection()
   }
+  delete compatibilityLoading[id]
+}
+
+const setCompatibilityLoading = (id, value) => {
+  if (!id) return
+  if (value) {
+    compatibilityLoading[id] = true
+  } else {
+    delete compatibilityLoading[id]
+  }
+}
+
+const handleCaseCompatibilityToggle = async (row, value) => {
+  const id = Number(row.id)
+  if (!id) return
+  const entry = selectedCasesMap.get(id)
+  const previous = entry?.compatibility_testing
+  if (entry) entry.compatibility_testing = value
+  setCompatibilityLoading(id, true)
+  try {
+    const resp = await testCaseService.update(id, { compatibility_testing: value })
+    if (resp.success) {
+      if (entry) {
+        entry.caseInfo = { ...entry.caseInfo, compatibility_testing: value }
+      }
+      ElMessage.success(value ? '已开启兼容性测试' : '已关闭兼容性测试')
+    } else if (entry) {
+      entry.compatibility_testing = previous
+    }
+  } catch {
+    if (entry) entry.compatibility_testing = previous
+  } finally {
+    setCompatibilityLoading(id, false)
+  }
 }
 
 const handleSubmit = () => {
@@ -857,9 +900,6 @@ const handleSubmit = () => {
     submitting.value = true
     try {
       const caseIds = Array.from(selectedCasesMap.keys())
-      const singleExecIds = selectedCases.value
-        .filter((entry) => !entry.compatibility)
-        .map((entry) => entry.id)
       const payload = {
         project_id: formData.project_id,
         name: formData.name,
@@ -869,7 +909,6 @@ const handleSubmit = () => {
         end_date: formData.end_date,
         case_ids: caseIds,
         case_group_ids: checkedGroupIds.value,
-        single_execution_case_ids: singleExecIds,
         device_model_ids: formData.device_model_ids,
         tester_user_ids: formData.tester_user_ids
       }

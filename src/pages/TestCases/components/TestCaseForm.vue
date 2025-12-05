@@ -73,6 +73,11 @@
               />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="兼容性测试">
+              <el-switch v-model="form.compatibility_testing" />
+            </el-form-item>
+          </el-col>
         </el-row>
       </div>
 
@@ -229,7 +234,8 @@ const form = ref({
   case_type: '',
   group_id: null,
   workload_minutes: 0,
-  department_id: null
+  department_id: null,
+  compatibility_testing: true
 })
 
 const rules = {
@@ -313,12 +319,13 @@ const open = async (m = 'create', data = null) => {
     preconditions: detail?.preconditions || '',
     steps: Array.isArray(detail?.steps) ? detail.steps.map(s => ({ ...s })) : [],
     expected_result: detail?.expected_result || '',
-    keywords: Array.isArray(detail?.keywords) ? detail.keywords.join(',') : (detail?.keywords || ''),
-    priority: detail?.priority || '',
-    case_type: detail?.case_type || '',
-    group_id: detail?.group_id || null,
-    workload_minutes: detail?.workload_minutes || 0,
-    department_id: detail?.department_id || props.departmentId || null
+  keywords: Array.isArray(detail?.keywords) ? detail.keywords.join(',') : (detail?.keywords || ''),
+  priority: detail?.priority || '',
+  case_type: detail?.case_type || '',
+  group_id: detail?.group_id || null,
+  workload_minutes: detail?.workload_minutes || 0,
+  department_id: detail?.department_id || props.departmentId || null,
+  compatibility_testing: detail?.compatibility_testing ?? true
   }
 
   visible.value = true
@@ -351,7 +358,8 @@ const handleSubmit = async () => {
       priority: form.value.priority,
       case_type: form.value.case_type,
       group_id: form.value.group_id,
-      workload_minutes: form.value.workload_minutes
+      workload_minutes: form.value.workload_minutes,
+      compatibility_testing: !!form.value.compatibility_testing
     }
 
     if (mode.value === 'edit') {

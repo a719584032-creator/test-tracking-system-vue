@@ -131,11 +131,13 @@
         <TestCaseTable
           :cases="caseList"
           :loading="loading"
+          :compatibility-loading="compatibilityLoading"
           @edit="handleEdit"
           @copy="handleCopy"
           @delete="handleDelete"
           @history="handleHistory"
           @create="handleCreate"
+          @toggle-compatibility="handleToggleCompatibility"
         />
 
         <div class="pagination-wrapper">
@@ -270,6 +272,7 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
+const compatibilityLoading = ref({})
 
 const filters = ref({
   title: '',
@@ -352,6 +355,34 @@ const handleDeptChange = () => {
 // 用例操作
 const handleCreate = () => {
   formRef.value?.open('create')
+}
+
+const setCompatibilityLoading = (id, status) => {
+  const next = { ...compatibilityLoading.value }
+  if (status) {
+    next[id] = true
+  } else {
+    delete next[id]
+  }
+  compatibilityLoading.value = next
+}
+
+const handleToggleCompatibility = async (row, value) => {
+  const previous = row.compatibility_testing
+  setCompatibilityLoading(row.id, true)
+  row.compatibility_testing = value
+  try {
+    const resp = await testCaseService.update(row.id, { compatibility_testing: value })
+    if (resp.success) {
+      ElMessage.success(value ? '已开启兼容性测试' : '已关闭兼容性测试')
+    } else {
+      row.compatibility_testing = previous
+    }
+  } catch {
+    row.compatibility_testing = previous
+  } finally {
+    setCompatibilityLoading(row.id, false)
+  }
 }
 
 const handleEdit = (row) => {

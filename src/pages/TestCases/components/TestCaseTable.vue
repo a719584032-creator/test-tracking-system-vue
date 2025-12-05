@@ -44,6 +44,17 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="兼容性测试" width="110" align="center">
+        <template #default="{ row }">
+          <el-switch
+            :model-value="!!row.compatibility_testing"
+            :loading="compatibilityLoading?.[row.id]"
+            :disabled="compatibilityLoading?.[row.id]"
+            @change="(val) => $emit('toggle-compatibility', row, val)"
+          />
+        </template>
+      </el-table-column>
+
       <!-- 关键字列 -->
       <el-table-column label="关键字" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">
@@ -136,10 +147,11 @@ import { formatDateTime } from '@/utils/format'
 
 defineProps({
   cases: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  compatibilityLoading: { type: Object, default: () => ({}) }
 })
 
-defineEmits(['edit', 'copy', 'history', 'delete', 'create'])
+defineEmits(['edit', 'copy', 'history', 'delete', 'create', 'toggle-compatibility'])
 
 // 映射优先级样式
 const getPriorityTagType = (p) => {

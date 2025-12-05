@@ -45,8 +45,8 @@
               {{ resolveExecutionResultLabel(caseDetail.latest_result) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="是否全机型">
-            {{ caseDetail.require_all_devices ? '是' : '否' }}
+          <el-descriptions-item label="兼容性测试">
+            {{ caseDetail.compatibility_testing ? '是' : '否' }}
           </el-descriptions-item>
           <el-descriptions-item label="计划用时">
             {{ formatWorkload(caseDetail.workload_minutes) }}
