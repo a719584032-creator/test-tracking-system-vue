@@ -1,132 +1,134 @@
 <!-- src/pages/TestCases/components/TestCaseTable.vue -->
 <template>
   <div class="test-case-table">
-    <el-table
-      :data="cases"
-      v-loading="loading"
-      style="width: 100%"
-      class="custom-table"
-      :row-key="row => row.id"
-      :header-cell-style="{ background: '#f8f9fa', color: '#606266', fontWeight: '600' }"
-      stripe
-    >
-      <el-table-column label="标题" min-width="260" show-overflow-tooltip>
-        <template #default="{ row }">
-          <router-link
-            class="case-title-link"
-            :to="{ name: 'TestCaseDetail', params: { id: row.id } }"
-          >
-            <el-icon class="title-icon"><Document /></el-icon>
-            {{ row.title }}
-          </router-link>
-        </template>
-      </el-table-column>
+    <div class="table-scroll">
+      <el-table
+        :data="cases"
+        v-loading="loading"
+        style="width: 100%"
+        class="custom-table"
+        :row-key="row => row.id"
+        :header-cell-style="{ background: '#f8f9fa', color: '#606266', fontWeight: '600' }"
+        stripe
+      >
+        <el-table-column label="标题" min-width="260" show-overflow-tooltip>
+          <template #default="{ row }">
+            <router-link
+              class="case-title-link"
+              :to="{ name: 'TestCaseDetail', params: { id: row.id } }"
+            >
+              <el-icon class="title-icon"><Document /></el-icon>
+              {{ row.title }}
+            </router-link>
+          </template>
+        </el-table-column>
 
-      <el-table-column prop="priority" label="优先级" width="92" align="center">
-        <template #default="{ row }">
-          <el-tag :type="getPriorityTagType(row.priority)" size="small">
-            {{ row.priority || '-' }}
-          </el-tag>
-        </template>
-      </el-table-column>
+        <el-table-column prop="priority" label="优先级" width="92" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getPriorityTagType(row.priority)" size="small">
+              {{ row.priority || '-' }}
+            </el-tag>
+          </template>
+        </el-table-column>
 
-      <el-table-column prop="status" label="状态" width="92" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-            {{ row.status === 'active' ? '有效' : '废弃' }}
-          </el-tag>
-        </template>
-      </el-table-column>
+        <el-table-column prop="status" label="状态" width="92" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+              {{ row.status === 'active' ? '有效' : '废弃' }}
+            </el-tag>
+          </template>
+        </el-table-column>
 
-      <el-table-column label="类型" width="100" align="center">
-        <template #default="{ row }">
-          {{ TEST_CASE_TYPE_LABEL_MAP[row.case_type] || '-' }}
-        </template>
-      </el-table-column>
+        <el-table-column label="类型" width="100" align="center">
+          <template #default="{ row }">
+            {{ TEST_CASE_TYPE_LABEL_MAP[row.case_type] || '-' }}
+          </template>
+        </el-table-column>
 
-      <el-table-column label="兼容性测试" width="110" align="center">
-        <template #default="{ row }">
-          <el-switch
-            :model-value="!!row.compatibility_testing"
-            :loading="compatibilityLoading?.[row.id]"
-            :disabled="compatibilityLoading?.[row.id]"
-            @change="(val) => $emit('toggle-compatibility', row, val)"
-          />
-        </template>
-      </el-table-column>
+        <el-table-column label="兼容性测试" width="110" align="center">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="!!row.compatibility_testing"
+              :loading="compatibilityLoading?.[row.id]"
+              :disabled="compatibilityLoading?.[row.id]"
+              @change="(val) => $emit('toggle-compatibility', row, val)"
+            />
+          </template>
+        </el-table-column>
 
-      <!-- 关键字列 -->
-      <el-table-column label="关键字" min-width="180" show-overflow-tooltip>
-        <template #default="{ row }">
-          <div class="keywords-container">
-            <template v-if="row.keywords && row.keywords.length > 0">
-              <el-tag
-                v-for="(keyword, index) in getDisplayKeywords(row.keywords)"
-                :key="index"
-                size="small"
-                type="info"
-                class="keyword-tag"
-              >
-                {{ keyword }}
-              </el-tag>
-              <el-tooltip
-                v-if="row.keywords.length > 3"
-                :content="getAllKeywords(row.keywords)"
-                placement="top"
-              >
-                <el-tag size="small" type="info" class="keyword-tag more-tag">
-                  +{{ row.keywords.length - 3 }}
+        <!-- 关键字列 -->
+        <el-table-column label="关键字" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="keywords-container">
+              <template v-if="row.keywords && row.keywords.length > 0">
+                <el-tag
+                  v-for="(keyword, index) in getDisplayKeywords(row.keywords)"
+                  :key="index"
+                  size="small"
+                  type="info"
+                  class="keyword-tag"
+                >
+                  {{ keyword }}
                 </el-tag>
-              </el-tooltip>
-            </template>
-            <span v-else class="no-keywords">-</span>
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="更新人 / 时间" min-width="180">
-        <template #default="{ row }">
-          <div class="user-info">
-            <div class="username">{{ row.updated_by || row.created_by || '-' }}</div>
-            <div class="time-info">
-              <el-icon><Timer /></el-icon>
-              <span class="time-text">{{ formatDateTime(row.updated_at || row.created_at) || '-' }}</span>
+                <el-tooltip
+                  v-if="row.keywords.length > 3"
+                  :content="getAllKeywords(row.keywords)"
+                  placement="top"
+                >
+                  <el-tag size="small" type="info" class="keyword-tag more-tag">
+                    +{{ row.keywords.length - 3 }}
+                  </el-tag>
+                </el-tooltip>
+              </template>
+              <span v-else class="no-keywords">-</span>
             </div>
-          </div>
-        </template>
-      </el-table-column>
+          </template>
+        </el-table-column>
 
-      <!-- 操作列：紧凑布局确保4个按钮都显示 -->
-      <el-table-column label="操作" fixed="right" width="150" align="center">
-        <template #default="{ row }">
-          <div class="actions-compact">
-            <el-tooltip content="编辑" placement="top" :show-after="800">
-              <el-button size="small" type="primary" text @click="$emit('edit', row)">
-                <el-icon><Edit /></el-icon>
-              </el-button>
-            </el-tooltip>
+        <el-table-column label="更新人 / 时间" min-width="180">
+          <template #default="{ row }">
+            <div class="user-info">
+              <div class="username">{{ row.updated_by || row.created_by || '-' }}</div>
+              <div class="time-info">
+                <el-icon><Timer /></el-icon>
+                <span class="time-text">{{ formatDateTime(row.updated_at || row.created_at) || '-' }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
 
-            <el-tooltip content="复制" placement="top" :show-after="800">
-              <el-button size="small" text @click="$emit('copy', row)">
-                <el-icon><DocumentCopy /></el-icon>
-              </el-button>
-            </el-tooltip>
+        <!-- 操作列：紧凑布局确保4个按钮都显示 -->
+        <el-table-column label="操作" fixed="right" width="150" align="center">
+          <template #default="{ row }">
+            <div class="actions-compact">
+              <el-tooltip content="编辑" placement="top" :show-after="800">
+                <el-button size="small" type="primary" text @click="$emit('edit', row)">
+                  <el-icon><Edit /></el-icon>
+                </el-button>
+              </el-tooltip>
 
-            <el-tooltip content="历史记录" placement="top" :show-after="800">
-              <el-button size="small" text @click="$emit('history', row)">
-                <el-icon><Clock /></el-icon>
-              </el-button>
-            </el-tooltip>
+              <el-tooltip content="复制" placement="top" :show-after="800">
+                <el-button size="small" text @click="$emit('copy', row)">
+                  <el-icon><DocumentCopy /></el-icon>
+                </el-button>
+              </el-tooltip>
 
-            <el-tooltip content="删除" placement="top" :show-after="800">
-              <el-button size="small" type="danger" text @click="$emit('delete', row)">
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </el-tooltip>
-          </div>
-        </template>
-      </el-table-column>
-    </el-table>
+              <el-tooltip content="历史记录" placement="top" :show-after="800">
+                <el-button size="small" text @click="$emit('history', row)">
+                  <el-icon><Clock /></el-icon>
+                </el-button>
+              </el-tooltip>
+
+              <el-tooltip content="删除" placement="top" :show-after="800">
+                <el-button size="small" type="danger" text @click="$emit('delete', row)">
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <!-- 空状态 -->
     <div v-if="!loading && (!cases || cases.length === 0)" class="empty-state">
@@ -197,6 +199,21 @@ const getAllKeywords = (keywords) => {
 </script>
 
 <style scoped>
+.test-case-table {
+  width: 100%;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-table {
+  min-width: 980px;
+}
+
 .custom-table :deep(.el-table__cell) {
   font-size: 13px;
 }
@@ -298,6 +315,10 @@ const getAllKeywords = (keywords) => {
     padding: 3px 5px !important;
     min-width: 30px;
   }
+
+  .custom-table {
+    min-width: 920px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -316,6 +337,10 @@ const getAllKeywords = (keywords) => {
 
   .keyword-tag {
     max-width: 60px;
+  }
+
+  .custom-table {
+    min-width: 880px;
   }
 }
 </style>
