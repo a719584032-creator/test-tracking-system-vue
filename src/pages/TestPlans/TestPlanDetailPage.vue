@@ -3,6 +3,14 @@
     <div class="page-header">
       <el-page-header content="测试计划详情" @back="goBack" />
       <div class="header-right">
+        <el-button
+          type="primary"
+          plain
+          :loading="exportLoading"
+          @click="exportPlanCases"
+        >
+          导出CSV
+        </el-button>
         <el-tag :type="statusTag" size="large">{{ statusLabel }}</el-tag>
       </div>
     </div>
@@ -325,6 +333,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { testPlansApi } from '@/api/testPlans'
+import { downloadCsvFile } from '@/utils/download'
 import {
   EXECUTION_RESULT_OPTIONS,
   EXECUTION_RESULT_TAG_MAP,
@@ -349,6 +358,7 @@ const planCases = ref([])
 const executionRows = ref([])
 const casePage = ref(1)
 const casePageSize = ref(20)
+const exportLoading = ref(false)
 
 const resultDialogRef = ref()
 const caseDetailDialogRef = ref()
@@ -431,6 +441,11 @@ const statusTag = computed(() => TEST_PLAN_STATUS_TAG_MAP[planDetail.value?.stat
 const statusLabel = computed(() => resolvePlanStatusLabel(planDetail.value?.status))
 
 const resolveResultTag = (result) => EXECUTION_RESULT_TAG_MAP[result] || 'info'
+const resolvePriorityLabel = (priority) => {
+  if (priority === null || priority === undefined || priority === '') return '-'
+  const key = String(priority)
+  return TEST_CASE_PRIORITY_LABEL_MAP[key] || key
+}
 
 const formatDate = (value) => (value ? String(value).slice(0, 10) : '-')
 
@@ -497,6 +512,19 @@ const resolveUserName = (userId) => {
   const name = testerMap.value.get(Number(userId))
   return name || `用户#${userId}`
 }
+
+const resolveDeviceLabel = (row = {}) => {
+  if (row.device_model_name) return row.device_model_name
+  if (row.device_model_code) return row.device_model_code
+  if (row.device_model_id) return `机型#${row.device_model_id}`
+  if (row.plan_device_model_id) return `机型#${row.plan_device_model_id}`
+  return '通用'
+}
+
+const sanitizeFilename = (value) => String(value || '')
+  .replace(/[\\\\/:*?"<>|]/g, '_')
+  .trim()
+  .slice(0, 80) || '测试计划'
 
 const goBack = () => {
   router.back()
@@ -680,6 +708,60 @@ const handleCasePageSizeChange = (size) => {
   casePage.value = 1
 }
 
+const exportPlanCases = () => {
+  if (exportLoading.value) return
+  if (!executionRows.value.length) {
+    ElMessage.warning('暂无可导出的用例记录')
+    return
+  }
+  exportLoading.value = true
+  try {
+    const headers = [
+      '用例标题',
+      '优先级',
+      '目录',
+      '执行机型',
+      '结果',
+      '执行人',
+      '执行时间',
+      '耗时',
+      '备注',
+      '失败原因',
+      '关联缺陷',
+      '计划工时'
+    ]
+
+    const rows = executionRows.value.map((row) => {
+      const caseInfo = row.caseInfo || {}
+      return [
+        row.case_title || caseInfo.title || `用例#${row.case_id || row.plan_case_id || ''}`,
+        resolvePriorityLabel(caseInfo.priority),
+        formatGroupPathLabel(caseInfo.group_path) || '根目录',
+        resolveDeviceLabel(row),
+        resolveExecutionResultLabel(row.result) || '未执行',
+        row.executed_by_name || resolveUserName(row.executed_by),
+        formatDateTime(row.executed_at) || '-',
+        formatExecutionDuration(row),
+        row.remark || '',
+        row.failure_reason || '',
+        row.bug_ref || '',
+        formatWorkloadMinutes(caseInfo.workload_minutes)
+      ]
+    })
+
+    const planName = sanitizeFilename(planDetail.value?.name || `测试计划${planId.value}`)
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const filename = `${planName}-执行结果_${timestamp}.csv`
+    downloadCsvFile(rows, headers, filename)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出测试计划用例失败:', error)
+    ElMessage.error('导出失败，请稍后重试')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
 watch(
   () => route.params.id,
   (newId) => {
@@ -727,6 +809,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .info-card,

@@ -173,19 +173,7 @@ onMounted(() => {
       }
     },
     legend: {
-      show: true,
-      bottom: '5%',
-      left: 'center',
-      itemWidth: 12,
-      itemHeight: 12,
-      textStyle: {
-        color: '#606266',
-        fontSize: 12
-      },
-      data: chartData.map(item => ({
-        name: item.name,
-        icon: 'circle'
-      }))
+      show: false
     },
     grid: {
       left: '3%',
@@ -229,6 +217,7 @@ onMounted(() => {
     },
     series: [
       {
+        name: '执行统计',
         type: 'bar',
         data: chartData.map(item => ({
           value: item.value,
