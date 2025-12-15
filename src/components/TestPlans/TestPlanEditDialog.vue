@@ -85,6 +85,25 @@
         </el-select>
       </el-form-item>
 
+      <el-form-item label="测试机型" prop="device_model_ids">
+        <el-select
+          v-model="formData.device_model_ids"
+          multiple
+          placeholder="请选择测试机型"
+          :loading="optionsLoading.deviceModels"
+          filterable
+          @remove-tag="handleDeviceTagRemove"
+        >
+          <el-option
+            v-for="device in deviceOptions"
+            :key="device.value"
+            :label="device.label"
+            :value="device.value"
+            :disabled="isLockedDevice(device.value)"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="计划描述">
         <el-input
           v-model="formData.description"
@@ -113,6 +132,7 @@ import { computed, nextTick, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { testPlansApi } from '@/api/testPlans'
 import { departmentService } from '@/api/departments'
+import { deviceModelsApi } from '@/api/deviceModels'
 
 const props = defineProps({
   statusOptions: {
@@ -130,6 +150,7 @@ const formRef = ref()
 const formData = reactive({
   id: null,
   department_id: null,
+  project_id: null,
   department_name: '-',
   project_name: '-',
   name: '',
@@ -137,7 +158,8 @@ const formData = reactive({
   start_date: '',
   end_date: '',
   description: '',
-  tester_user_ids: []
+  tester_user_ids: [],
+  device_model_ids: []
 })
 
 const rules = {
@@ -150,7 +172,8 @@ const rules = {
   ],
   tester_user_ids: [
     { type: 'array', required: true, message: '请选择测试人员', trigger: 'change' }
-  ]
+  ],
+  device_model_ids: []
 }
 
 const mergedStatusOptions = computed(() => {
@@ -162,9 +185,12 @@ const mergedStatusOptions = computed(() => {
 })
 
 const testerOptions = ref([])
+const deviceOptions = ref([])
+const lockedDeviceModelIds = ref(new Set())
 
 const optionsLoading = reactive({
-  testers: false
+  testers: false,
+  deviceModels: false
 })
 
 const dialogTitle = computed(() => '编辑测试计划')
@@ -173,6 +199,7 @@ const resetForm = () => {
   Object.assign(formData, {
     id: null,
     department_id: null,
+    project_id: null,
     department_name: '-',
     project_name: '-',
     name: '',
@@ -180,9 +207,12 @@ const resetForm = () => {
     start_date: '',
     end_date: '',
     description: '',
-    tester_user_ids: []
+    tester_user_ids: [],
+    device_model_ids: []
   })
   testerOptions.value = []
+  deviceOptions.value = []
+  lockedDeviceModelIds.value = new Set()
   formRef.value?.clearValidate()
 }
 
@@ -229,6 +259,48 @@ const mergeTesterOptions = (options = []) => {
   }))
 }
 
+const buildDeviceOption = (device) => {
+  if (!device) return null
+  const rawId =
+    device.device_model_id ||
+    device.id ||
+    device.device_model?.id
+  if (rawId === undefined || rawId === null || rawId === '') return null
+  const value = Number(rawId)
+  if (Number.isNaN(value)) return null
+  const label =
+    device.device_model?.name ||
+    device.name ||
+    device.device_model_name ||
+    device.model_name ||
+    device.code ||
+    `机型#${value}`
+  return { value, label }
+}
+
+const mergeDeviceOptions = (options = []) => {
+  const map = new Map()
+  const existing = Array.isArray(deviceOptions.value) ? deviceOptions.value : []
+  existing.forEach((item) => {
+    if (!item || item.value === undefined || item.value === null) return
+    const value = Number(item.value)
+    if (Number.isNaN(value)) return
+    map.set(value, item.label || `机型#${value}`)
+  })
+  options.forEach((item) => {
+    if (!item || item.value === undefined || item.value === null) return
+    const value = Number(item.value)
+    if (Number.isNaN(value)) return
+    if (!map.has(value)) {
+      map.set(value, item.label || `机型#${value}`)
+    }
+  })
+  deviceOptions.value = Array.from(map.entries()).map(([value, label]) => ({
+    value,
+    label
+  }))
+}
+
 const fetchTesterOptions = async (departmentId) => {
   if (departmentId === null || departmentId === undefined) return
   optionsLoading.testers = true
@@ -265,6 +337,50 @@ const fetchTesterOptions = async (departmentId) => {
   }
 }
 
+const fetchDeviceOptions = async (departmentId) => {
+  if (departmentId === null || departmentId === undefined) return
+  optionsLoading.deviceModels = true
+  try {
+    const params = { page: 1, page_size: 1000, department_id: departmentId }
+    const response = await deviceModelsApi.list(params)
+    if (!response?.success) return
+    const items = response.data?.items || response.data?.list || []
+    const options = items
+      .map((item) => {
+        const id = Number(item.id)
+        if (!id) return null
+        const label = item.name || item.model_name || item.code || `机型#${id}`
+        return { value: id, label }
+      })
+      .filter(Boolean)
+    mergeDeviceOptions(options)
+  } catch (error) {
+    console.error('获取机型列表失败:', error)
+  } finally {
+    optionsLoading.deviceModels = false
+  }
+}
+
+const isLockedDevice = (value) => lockedDeviceModelIds.value.has(Number(value))
+
+const ensureLockedDevices = () => {
+  const set = new Set(
+    (Array.isArray(formData.device_model_ids) ? formData.device_model_ids : []).map((id) =>
+      Number(id)
+    )
+  )
+  lockedDeviceModelIds.value.forEach((id) => set.add(Number(id)))
+  formData.device_model_ids = Array.from(set)
+}
+
+const handleDeviceTagRemove = (value) => {
+  const id = Number(value)
+  if (isLockedDevice(id)) {
+    ensureLockedDevices()
+    ElMessage.warning('已关联的机型不可删除')
+  }
+}
+
 const open = (plan) => {
   resetForm()
   if (plan) {
@@ -284,14 +400,33 @@ const open = (plan) => {
       plan.project?.department?.name ||
       '-'
     const projectName = plan.project_name || plan.projectName || plan.project?.name || '-'
+    const projectId = Number(plan.project_id || plan.projectId || plan.project?.id) || null
     const testers = Array.isArray(plan.testers) ? plan.testers : []
     const initialTesterOptions = testers
       .map((tester) => buildTesterOption(tester))
       .filter(Boolean)
     const testerIds = initialTesterOptions.map((item) => item.value)
+    const devices = Array.isArray(plan.device_models) ? plan.device_models : []
+    const initialDeviceOptions = devices
+      .map((device) => buildDeviceOption(device))
+      .filter(Boolean)
+    const deviceIdsFromPlan = Array.isArray(plan.device_model_ids)
+      ? plan.device_model_ids
+          .map((id) => Number(id))
+          .filter((id) => !Number.isNaN(id))
+      : []
+    const deviceIds = Array.from(
+      new Set([...initialDeviceOptions.map((item) => item.value), ...deviceIdsFromPlan])
+    )
+    const supplementalOptions = deviceIds
+      .filter((id) => !initialDeviceOptions.some((item) => item.value === id))
+      .map((id) => ({ value: id, label: `机型#${id}` }))
+    const allInitialDeviceOptions = [...initialDeviceOptions, ...supplementalOptions]
+
     Object.assign(formData, {
       id: plan.id,
       department_id: departmentId,
+      project_id: projectId,
       department_name: departmentName,
       project_name: projectName,
       name: plan.name || '',
@@ -299,40 +434,82 @@ const open = (plan) => {
       start_date: plan.start_date || '',
       end_date: plan.end_date || '',
       description: plan.description || '',
-      tester_user_ids: testerIds
+      tester_user_ids: testerIds,
+      device_model_ids: deviceIds
     })
+    lockedDeviceModelIds.value = new Set(deviceIds)
     mergeTesterOptions(initialTesterOptions)
+    mergeDeviceOptions(allInitialDeviceOptions)
     if (departmentId !== null) {
       fetchTesterOptions(departmentId)
+      fetchDeviceOptions(departmentId)
     }
   }
   visible.value = true
   nextTick(() => formRef.value?.clearValidate())
 }
 
-const handleSubmit = () => {
-  formRef.value?.validate(async (valid) => {
-    if (!valid) return
-    submitting.value = true
-    try {
-      const payload = {
-        name: formData.name,
-        description: formData.description || undefined,
-        status: formData.status,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-        tester_user_ids: formData.tester_user_ids
-      }
-      const response = await testPlansApi.update(formData.id, payload)
-      if (response?.success) {
-        ElMessage.success(response.message || '测试计划已更新')
-        emit('success', response.data)
-        visible.value = false
-      }
-    } finally {
-      submitting.value = false
+const validateForm = async () => {
+  if (!formRef.value) return false
+  try {
+    await formRef.value.validate()
+    return true
+  } catch {
+    ElMessage.warning('请完善必填项后再保存')
+    return false
+  }
+}
+
+const handleSubmit = async () => {
+  if (import.meta?.env?.DEV) {
+    console.log('[TestPlanEditDialog] save clicked', {
+      id: formData.id,
+      submitting: submitting.value
+    })
+  }
+  if (submitting.value) return
+  if (!formData.id) {
+    ElMessage.error('缺少计划ID，无法提交更新')
+    return
+  }
+  const isValid = formRef.value ? await validateForm() : true
+  if (!isValid) return
+  submitting.value = true
+  try {
+    const payload = {
+      name: formData.name,
+      description: formData.description || undefined,
+      status: formData.status,
+      start_date: formData.start_date || null,
+      end_date: formData.end_date || null,
+      department_id: formData.department_id,
+      tester_user_ids: formData.tester_user_ids,
+      project_id: formData.project_id,
+      device_model_ids: Array.from(
+        new Set([
+          ...Array.from(lockedDeviceModelIds.value),
+          ...(Array.isArray(formData.device_model_ids) ? formData.device_model_ids : [])
+        ])
+      )
+        .map((id) => Number(id))
+        .filter((id) => !Number.isNaN(id))
     }
-  })
+    if (import.meta?.env?.DEV) {
+      console.log('[TestPlanEditDialog] submitting payload', payload)
+    }
+    const response = await testPlansApi.update(formData.id, payload)
+    if (response?.success) {
+      ElMessage.success(response.message || '测试计划已更新')
+      emit('success', response.data)
+      visible.value = false
+    } else if (response?.message) {
+      ElMessage.error(response.message)
+    }
+  } catch (error) {
+    console.error('更新测试计划失败:', error)
+  } finally {
+    submitting.value = false
+  }
 }
 
 const handleClose = () => {

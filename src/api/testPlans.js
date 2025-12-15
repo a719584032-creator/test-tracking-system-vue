@@ -8,7 +8,7 @@ async function handleRequest(apiFunc, args = [], defaultErrorMsg = '操作失败
     const response = await apiFunc(...args)
     const payload = response.data || {}
 
-    if (payload.code !== undefined && payload.code !== 200) {
+    if (payload.success === false || (payload.code !== undefined && payload.code !== 200)) {
       ElMessage.error(payload.message || defaultErrorMsg)
       return {
         success: false,
