@@ -60,6 +60,22 @@
           <div class="plan-description">{{ planDetail.description }}</div>
         </el-descriptions-item>
       </el-descriptions>
+
+      <el-descriptions
+        v-if="dockNineGridEntries.length"
+        class="dock-config-descriptions"
+        title="Dock 配置文件（dock_nine_gird）"
+        :column="3"
+        border
+      >
+        <el-descriptions-item
+          v-for="item in dockNineGridEntries"
+          :key="item.key"
+          :label="item.label"
+        >
+          {{ item.valueLabel }}
+        </el-descriptions-item>
+      </el-descriptions>
     </el-card>
 
     <el-card class="stats-card" shadow="never">
@@ -347,6 +363,41 @@ import { featureFlags } from '@/config'
 import TestPlanResultDialog from '@/components/TestPlans/TestPlanResultDialog.vue'
 import PlanCaseDetailDialog from '@/components/TestPlans/PlanCaseDetailDialog.vue'
 
+const dockNineGridTemplate = [
+  { key: 'HotPlug', payloadKey: 'hotplug', label: 'HotPlug' },
+  { key: 'S3-Plug in-Resume', payloadKey: 's3_plug_in_resume', label: 'S3-Plug in-Resume' },
+  { key: 'S3-Unplug-Plug in-Resume', payloadKey: 's3_unplug_plug_in_resume', label: 'S3-Unplug-Plug in-Resume' },
+  { key: 'S3-Unplug-Resume-Plug in', payloadKey: 's3_unplug_resume_plug_in', label: 'S3-Unplug-Resume-Plug in' },
+  { key: 'S4-Plug in-Resume', payloadKey: 's4_plug_in_resume', label: 'S4-Plug in-Resume' },
+  { key: 'S4-Unplug-Plug in-Resume', payloadKey: 's4_unplug_plug_in_resume', label: 'S4-Unplug-Plug in-Resume' },
+  { key: 'S4-Unplug-Resume-Plug in', payloadKey: 's4_unplug_resume_plug_in', label: 'S4-Unplug-Resume-Plug in' },
+  { key: 'S5-Plug in-Power on', payloadKey: 's5_plug_in_power_on', label: 'S5-Plug in-Power on' },
+  { key: 'S5-Unplug-Power on-Plug in', payloadKey: 's5_unplug_power_on_plug_in', label: 'S5-Unplug-Power on-Plug in' }
+]
+
+const parseDockNineGrid = (value) => {
+  if (!value) return null
+  let parsed = value
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      return null
+    }
+  }
+  if (Array.isArray(parsed)) {
+    const mapped = {}
+    parsed.forEach((item) => {
+      const key = item?.key || item?.name || item?.label
+      if (!key) return
+      mapped[key] = item.value ?? item.score ?? item.amount
+    })
+    return mapped
+  }
+  if (parsed && typeof parsed === 'object') return parsed
+  return null
+}
+
 const route = useRoute()
 const router = useRouter()
 
@@ -396,6 +447,22 @@ const deviceOptions = computed(() => {
     }
   })
   return Array.from(map, ([value, label]) => ({ value, label }))
+})
+
+const dockNineGridEntries = computed(() => {
+  const parsed =
+    parseDockNineGrid(planDetail.value?.dock_nine_gird) ||
+    parseDockNineGrid(planDetail.value?.dock_nine_grid)
+  if (!parsed) return []
+  return dockNineGridTemplate.map((item) => {
+    const rawValue = parsed[item.payloadKey] ?? parsed[item.key]
+    const hasValue = rawValue !== undefined && rawValue !== null && rawValue !== ''
+    return {
+      ...item,
+      value: rawValue,
+      valueLabel: hasValue ? rawValue : '-'
+    }
+  })
 })
 
 /** 将 user_id -> 显示名 做一个映射，方便回退展示执行人 */
@@ -857,6 +924,10 @@ onMounted(() => {
 }
 
 .description-block {
+  margin-top: 16px;
+}
+
+.dock-config-descriptions {
   margin-top: 16px;
 }
 
