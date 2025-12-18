@@ -153,6 +153,44 @@
             </el-form-item>
           </el-col>
         </el-row>
+
+        <div class="dock-config-card">
+          <div class="dock-config-header">
+            <div>
+              <div class="dock-config-title">Dock 配置文件</div>
+              <div class="dock-config-desc">
+                默认不填值，点击按钮展开后可编辑；“填充默认指标”会使用预设值。
+            </div>
+          </div>
+          <div class="dock-config-actions">
+            <el-button size="small" @click="dockConfigVisible = !dockConfigVisible">
+              {{ dockConfigVisible ? '收起' : '配置 Dock 指标' }}
+            </el-button>
+            <el-button size="small" type="primary" text @click="dockNineGrid = buildDefaultDockNineGrid(true)">
+              填充默认指标
+            </el-button>
+          </div>
+          </div>
+          <el-collapse-transition>
+            <div v-show="dockConfigVisible">
+              <el-row :gutter="20">
+                <el-col v-for="item in dockNineGrid" :key="item.key" :span="12">
+                  <el-form-item :label="item.label" label-width="200px" class="dock-form-item">
+                    <el-input-number
+                      v-model="item.value"
+                      :min="0"
+                      :step="10"
+                      :precision="0"
+                      controls-position="right"
+                      size="large"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </el-collapse-transition>
+        </div>
       </el-form>
 
       <el-divider>选择测试用例</el-divider>
@@ -351,6 +389,21 @@ import { TEST_PLAN_STATUS_OPTIONS } from '@/constants/testPlan'
 
 const emit = defineEmits(['success'])
 
+const dockNineGridTemplate = [
+  { key: 'HotPlug', payloadKey: 'hotplug', label: 'HotPlug', defaultValue: 100 },
+  { key: 'S3-Plug in-Resume', payloadKey: 's3_plug_in_resume', label: 'S3-Plug in-Resume', defaultValue: 50 },
+  { key: 'S3-Unplug-Plug in-Resume', payloadKey: 's3_unplug_plug_in_resume', label: 'S3-Unplug-Plug in-Resume', defaultValue: 50 },
+  { key: 'S3-Unplug-Resume-Plug in', payloadKey: 's3_unplug_resume_plug_in', label: 'S3-Unplug-Resume-Plug in', defaultValue: 20 },
+  { key: 'S4-Plug in-Resume', payloadKey: 's4_plug_in_resume', label: 'S4-Plug in-Resume', defaultValue: 50 },
+  { key: 'S4-Unplug-Plug in-Resume', payloadKey: 's4_unplug_plug_in_resume', label: 'S4-Unplug-Plug in-Resume', defaultValue: 30 },
+  { key: 'S4-Unplug-Resume-Plug in', payloadKey: 's4_unplug_resume_plug_in', label: 'S4-Unplug-Resume-Plug in', defaultValue: 30 },
+  { key: 'S5-Plug in-Power on', payloadKey: 's5_plug_in_power_on', label: 'S5-Plug in-Power on', defaultValue: 20 },
+  { key: 'S5-Unplug-Power on-Plug in', payloadKey: 's5_unplug_power_on_plug_in', label: 'S5-Unplug-Power on-Plug in', defaultValue: 20 }
+]
+
+const buildDefaultDockNineGrid = (useDefaults = false) =>
+  dockNineGridTemplate.map((item) => ({ ...item, value: useDefaults ? item.defaultValue : '' }))
+
 const visible = ref(false)
 const submitting = ref(false)
 const formRef = ref()
@@ -369,6 +422,21 @@ const formData = reactive({
   device_model_ids: [],
   description: ''
 })
+
+const dockNineGrid = ref(buildDefaultDockNineGrid())
+const resetDockNineGrid = () => {
+  dockNineGrid.value = buildDefaultDockNineGrid()
+}
+const buildDockNineGridPayload = () => {
+  const payload = {}
+  dockNineGrid.value.forEach((item) => {
+    if (!item?.payloadKey && !item?.key) return
+    const numeric = Number(item.value)
+    const targetKey = item.payloadKey || item.key
+    payload[targetKey] = Number.isFinite(numeric) ? numeric : item.value
+  })
+  return payload
+}
 
 const rules = {
   department_id: [{ required: true, message: '请选择所属部门', trigger: 'change' }],
@@ -390,6 +458,7 @@ const projectOptions = ref([])
 const testerOptions = ref([])
 const deviceOptions = ref([])
 const compatibilityLoading = reactive({})
+const dockConfigVisible = ref(false)
 
 const optionsLoading = reactive({
   departments: false,
@@ -464,6 +533,8 @@ const resetState = () => {
   formData.tester_user_ids = []
   formData.device_model_ids = []
   formData.description = ''
+  resetDockNineGrid()
+  dockConfigVisible.value = false
 
   projectOptions.value = []
   testerOptions.value = []
@@ -910,7 +981,8 @@ const handleSubmit = () => {
         case_ids: caseIds,
         case_group_ids: checkedGroupIds.value,
         device_model_ids: formData.device_model_ids,
-        tester_user_ids: formData.tester_user_ids
+        tester_user_ids: formData.tester_user_ids,
+        dock_nine_gird: buildDockNineGridPayload()
       }
       const resp = await testPlansApi.create(payload)
       if (resp.success) {
@@ -1070,6 +1142,44 @@ defineExpose({ open, close })
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.dock-config-card {
+  margin-top: 12px;
+  padding: 18px 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #f7f8fa;
+}
+
+.dock-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.dock-config-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.dock-config-desc {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.dock-config-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dock-form-item :deep(.el-form-item__label) {
+  white-space: nowrap;
+  font-size: 14px;
 }
 
 .drawer-footer {

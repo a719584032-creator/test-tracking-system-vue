@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/api': {
-          target: 'http://10.184.37.17:8888', // Flask 后端地址和端口
+          target: 'http://127.0.0.1:8888', // Flask 后端地址和端口
           //target: 'https://patvs.lenovo.com',
           changeOrigin: true,
           secure: false,

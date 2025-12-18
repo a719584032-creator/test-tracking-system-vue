@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    width="520px"
+    width="1100px"
     :close-on-click-modal="false"
     :title="dialogTitle"
     @close="handleClose"
@@ -104,6 +104,44 @@
         </el-select>
       </el-form-item>
 
+      <div class="dock-config-card">
+        <div class="dock-config-header">
+          <div>
+            <div class="dock-config-title">Dock 配置文件</div>
+            <div class="dock-config-desc">
+              默认不填值，点击按钮展开后可编辑；“填充默认指标”会使用预设值。
+            </div>
+          </div>
+          <div class="dock-config-actions">
+            <el-button size="small" @click="dockConfigVisible = !dockConfigVisible">
+              {{ dockConfigVisible ? '收起' : '配置 Dock 指标' }}
+            </el-button>
+            <el-button size="small" type="primary" text @click="dockNineGrid = buildDefaultDockNineGrid(true)">
+              填充默认指标
+            </el-button>
+          </div>
+        </div>
+        <el-collapse-transition>
+          <div v-show="dockConfigVisible">
+            <el-row :gutter="20">
+              <el-col v-for="item in dockNineGrid" :key="item.key" :span="12">
+                <el-form-item :label="item.label" label-width="200px" class="dock-form-item">
+                  <el-input-number
+                    v-model="item.value"
+                    :min="0"
+                    :step="10"
+                    :precision="0"
+                    controls-position="right"
+                    size="large"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </div>
+        </el-collapse-transition>
+      </div>
+
       <el-form-item label="计划描述">
         <el-input
           v-model="formData.description"
@@ -134,6 +172,21 @@ import { testPlansApi } from '@/api/testPlans'
 import { departmentService } from '@/api/departments'
 import { deviceModelsApi } from '@/api/deviceModels'
 
+const dockNineGridTemplate = [
+  { key: 'HotPlug', payloadKey: 'hotplug', label: 'HotPlug', defaultValue: 100 },
+  { key: 'S3-Plug in-Resume', payloadKey: 's3_plug_in_resume', label: 'S3-Plug in-Resume', defaultValue: 50 },
+  { key: 'S3-Unplug-Plug in-Resume', payloadKey: 's3_unplug_plug_in_resume', label: 'S3-Unplug-Plug in-Resume', defaultValue: 50 },
+  { key: 'S3-Unplug-Resume-Plug in', payloadKey: 's3_unplug_resume_plug_in', label: 'S3-Unplug-Resume-Plug in', defaultValue: 20 },
+  { key: 'S4-Plug in-Resume', payloadKey: 's4_plug_in_resume', label: 'S4-Plug in-Resume', defaultValue: 50 },
+  { key: 'S4-Unplug-Plug in-Resume', payloadKey: 's4_unplug_plug_in_resume', label: 'S4-Unplug-Plug in-Resume', defaultValue: 30 },
+  { key: 'S4-Unplug-Resume-Plug in', payloadKey: 's4_unplug_resume_plug_in', label: 'S4-Unplug-Resume-Plug in', defaultValue: 30 },
+  { key: 'S5-Plug in-Power on', payloadKey: 's5_plug_in_power_on', label: 'S5-Plug in-Power on', defaultValue: 20 },
+  { key: 'S5-Unplug-Power on-Plug in', payloadKey: 's5_unplug_power_on_plug_in', label: 'S5-Unplug-Power on-Plug in', defaultValue: 20 }
+]
+
+const buildDefaultDockNineGrid = (useDefaults = false) =>
+  dockNineGridTemplate.map((item) => ({ ...item, value: useDefaults ? item.defaultValue : '' }))
+
 const props = defineProps({
   statusOptions: {
     type: Array,
@@ -161,6 +214,54 @@ const formData = reactive({
   tester_user_ids: [],
   device_model_ids: []
 })
+
+const dockNineGrid = ref(buildDefaultDockNineGrid())
+const dockConfigVisible = ref(false)
+const resetDockNineGrid = () => {
+  dockNineGrid.value = buildDefaultDockNineGrid()
+}
+const buildDockNineGridPayload = () => {
+  const payload = {}
+  dockNineGrid.value.forEach((item) => {
+    if (!item?.payloadKey && !item?.key) return
+    const numeric = Number(item.value)
+    const targetKey = item.payloadKey || item.key
+    payload[targetKey] = Number.isFinite(numeric) ? numeric : item.value
+  })
+  return payload
+}
+const applyDockNineGridFromPlan = (plan) => {
+  resetDockNineGrid()
+  const raw = plan?.dock_nine_gird || plan?.dock_nine_grid
+  if (!raw) return
+  let parsed = raw
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = raw
+    }
+  }
+  if (Array.isArray(parsed)) {
+    const mapped = {}
+    parsed.forEach((item) => {
+      const key = item?.key || item?.name || item?.label
+      if (!key) return
+      mapped[key] = item.value ?? item.score ?? item.amount
+    })
+    parsed = mapped
+  }
+  if (parsed && typeof parsed === 'object') {
+    dockNineGrid.value = dockNineGridTemplate.map((item) => {
+      const rawValue = parsed[item.payloadKey] ?? parsed[item.key]
+      const numeric = Number(rawValue)
+      return {
+        ...item,
+        value: Number.isFinite(numeric) ? numeric : rawValue ?? item.defaultValue
+      }
+    })
+  }
+}
 
 const rules = {
   name: [
@@ -213,6 +314,8 @@ const resetForm = () => {
   testerOptions.value = []
   deviceOptions.value = []
   lockedDeviceModelIds.value = new Set()
+  resetDockNineGrid()
+  dockConfigVisible.value = false
   formRef.value?.clearValidate()
 }
 
@@ -440,6 +543,8 @@ const open = (plan) => {
     lockedDeviceModelIds.value = new Set(deviceIds)
     mergeTesterOptions(initialTesterOptions)
     mergeDeviceOptions(allInitialDeviceOptions)
+    applyDockNineGridFromPlan(plan)
+    dockConfigVisible.value = Boolean(plan?.dock_nine_gird || plan?.dock_nine_grid)
     if (departmentId !== null) {
       fetchTesterOptions(departmentId)
       fetchDeviceOptions(departmentId)
@@ -492,7 +597,8 @@ const handleSubmit = async () => {
         ])
       )
         .map((id) => Number(id))
-        .filter((id) => !Number.isNaN(id))
+        .filter((id) => !Number.isNaN(id)),
+      dock_nine_gird: buildDockNineGridPayload()
     }
     if (import.meta?.env?.DEV) {
       console.log('[TestPlanEditDialog] submitting payload', payload)
@@ -522,6 +628,44 @@ defineExpose({
 </script>
 
 <style scoped>
+.dock-config-card {
+  padding: 18px 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #f7f8fa;
+  margin-bottom: 12px;
+}
+
+.dock-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.dock-config-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.dock-config-desc {
+  margin-bottom: 8px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.dock-form-item :deep(.el-form-item__label) {
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.dock-config-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
