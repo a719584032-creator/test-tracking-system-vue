@@ -71,7 +71,8 @@ export const routes = [
         component: () => import('../pages/TestCases/TestCaseManagePage.vue'),
         meta: {
           title: '用例管理',
-          requiresAuth: true
+          requiresAuth: true,
+          keepAlive: true
         }
       },
       {
