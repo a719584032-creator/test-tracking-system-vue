@@ -21,7 +21,6 @@
         :props="treeProps"
         :expand-on-click-node="false"
         :highlight-current="true"
-        default-expand-all
         draggable
         :allow-drag="allowDrag"
         :allow-drop="allowDrop"

@@ -646,6 +646,8 @@ watch(departmentId, (val) => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 24px;
 }
 
 .table-header {
@@ -759,6 +761,8 @@ watch(departmentId, (val) => {
 
   .case-table {
     height: auto;
+    position: static;
+    top: auto;
   }
 }
 
