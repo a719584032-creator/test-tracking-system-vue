@@ -116,26 +116,25 @@
       <template #header>
         <div class="card-header">
           <h3>计划用例</h3>
-          <span class="card-sub">共 {{ totalExecutionRows }} 条执行记录 / {{ planCases.length }} 条用例</span>
+          <span class="card-sub">当前页 {{ totalExecutionRows }} 条执行记录 / 共 {{ totalCaseCount }} 条用例</span>
         </div>
       </template>
 
       <el-form :inline="true" :model="caseFilters" class="case-filter-form">
         <el-form-item label="目录">
-          <el-select
+          <el-tree-select
             v-model="caseFilters.group_path"
+            :data="groupPathTreeOptions"
+            :props="treeSelectProps"
+            node-key="value"
             placeholder="全部目录"
             clearable
             filterable
+            check-strictly
+            :filter-node-method="filterGroupPathNode"
+            :render-after-expand="false"
             class="filter-item"
-          >
-            <el-option
-              v-for="path in groupPathOptions"
-              :key="path"
-              :label="formatGroupPathLabel(path)"
-              :value="path"
-            />
-          </el-select>
+          />
         </el-form-item>
       <el-form-item label="优先级">
         <el-select
@@ -205,7 +204,7 @@
 
       <el-table
         v-loading="casesLoading"
-        :data="paginatedRows"
+        :data="executionRows"
         stripe
         empty-text="暂无用例数据"
       >
@@ -321,7 +320,7 @@
         <el-pagination
           v-model:current-page="casePage"
           v-model:page-size="casePageSize"
-          :total="totalExecutionRows"
+          :total="totalCaseCount"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="handleCasePageChange"
@@ -409,6 +408,7 @@ const planCases = ref([])
 const executionRows = ref([])
 const casePage = ref(1)
 const casePageSize = ref(20)
+const totalCaseCount = ref(0)
 const exportLoading = ref(false)
 
 const resultDialogRef = ref()
@@ -417,7 +417,7 @@ const caseDetailDialogRef = ref()
 const enableResultRecording = featureFlags.enableResultRecording !== false
 
 const caseFilters = reactive({
-  group_path: '',
+  group_path: null,
   priority: '',
   device_model_id: '',
   status: '',
@@ -426,7 +426,8 @@ const caseFilters = reactive({
 
 const priorityOptions = ref(TEST_CASE_PRIORITY_OPTIONS.map((option) => ({ ...option })))
 const statusOptions = EXECUTION_RESULT_OPTIONS
-const groupPathOptions = ref([])
+const groupPathTreeOptions = ref([])
+const treeSelectProps = { value: 'value', label: 'label', children: 'children' }
 const deviceOptions = computed(() => {
   const devices = planDetail.value?.device_models || []
   const map = new Map()
@@ -499,11 +500,6 @@ const deviceNames = computed(() => {
 
 const totalExecutionRows = computed(() => executionRows.value.length)
 
-const paginatedRows = computed(() => {
-  const start = (casePage.value - 1) * casePageSize.value
-  return executionRows.value.slice(start, start + casePageSize.value)
-})
-
 const statusTag = computed(() => TEST_PLAN_STATUS_TAG_MAP[planDetail.value?.status] || 'info')
 const statusLabel = computed(() => resolvePlanStatusLabel(planDetail.value?.status))
 
@@ -572,6 +568,98 @@ const formatGroupPathLabel = (path) => {
   if (!path) return ''
   const stripped = stripGroupRootPrefix(path)
   return stripped || '根目录'
+}
+
+const normalizeGroupPathValue = (path) => {
+  if (path === null || path === undefined) return ''
+  return String(path).trim().replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/')
+}
+
+const transformGroupTreeNode = (node) => {
+  if (!node || typeof node !== 'object') return null
+  const rawPath = node.path || node.group_path || ''
+  const normalizedPath = normalizeGroupPathValue(rawPath)
+  if (!normalizedPath) return null
+  const isRoot = normalizedPath === 'root' || node.name === 'root'
+  const label = isRoot ? '根目录' : node.name || formatGroupPathLabel(normalizedPath)
+  const children = Array.isArray(node.children)
+    ? node.children.map(transformGroupTreeNode).filter(Boolean)
+    : []
+  return {
+    value: normalizedPath,
+    label,
+    pathLabel: formatGroupPathLabel(normalizedPath),
+    children
+  }
+}
+
+const buildGroupTreeOptions = (groupTree) => {
+  if (!groupTree) return []
+  const roots = Array.isArray(groupTree) ? groupTree : [groupTree]
+  const options = roots.map(transformGroupTreeNode).filter(Boolean)
+  const rootNode = options.find((node) => node.value === 'root')
+  if (rootNode) {
+    return Array.isArray(rootNode.children) ? rootNode.children : []
+  }
+  return options
+}
+
+const buildGroupPathTree = (paths = []) => {
+  const rootNodes = []
+  const nodeMap = new Map()
+
+  const ensureNode = (parent, value, label) => {
+    const existing = nodeMap.get(value)
+    if (existing) return existing
+    const node = {
+      value,
+      label,
+      pathLabel: formatGroupPathLabel(value),
+      children: []
+    }
+    nodeMap.set(value, node)
+    parent.push(node)
+    return node
+  }
+
+  paths.forEach((path) => {
+    const normalized = normalizeGroupPathValue(path)
+    if (!normalized) return
+    if (normalized === 'root') return
+    const hasRootPrefix = normalized.startsWith('root/')
+    const stripped = stripGroupRootPrefix(normalized)
+    const segments = stripped ? stripped.split('/').filter(Boolean) : []
+    if (!segments.length) {
+      return
+    }
+    let parent = rootNodes
+    segments.forEach((segment, index) => {
+      const segmentPath = segments.slice(0, index + 1).join('/')
+      const value = hasRootPrefix ? `root/${segmentPath}` : segmentPath
+      const node = ensureNode(parent, value, segment)
+      parent = node.children
+    })
+  })
+
+  const sortNodes = (nodes) => {
+    nodes.sort((a, b) => a.label.localeCompare(b.label))
+    nodes.forEach((node) => {
+      if (node.children?.length) sortNodes(node.children)
+    })
+  }
+
+  sortNodes(rootNodes)
+
+  return rootNodes
+}
+
+const filterGroupPathNode = (query, data) => {
+  if (!query) return true
+  const keyword = String(query).trim().toLowerCase()
+  if (!keyword) return true
+  const label = String(data?.label || '').toLowerCase()
+  const pathLabel = String(data?.pathLabel || '').toLowerCase()
+  return label.includes(keyword) || pathLabel.includes(keyword)
 }
 
 const resolveUserName = (userId) => {
@@ -705,28 +793,40 @@ const fetchPlanCases = async () => {
       group_path: caseFilters.group_path,
       priority: caseFilters.priority,
       device_model_id: caseFilters.device_model_id,
-      status: caseFilters.status
+      status: caseFilters.status,
+      page: casePage.value,
+      page_size: casePageSize.value
     }
     if (caseFilters.keyword) {
       params.keyword = caseFilters.keyword
     }
     const response = await testPlansApi.getCases(planId.value, params)
     if (!response?.success) return
-    const cases = Array.isArray(response.data?.cases) ? response.data.cases : []
+    const payload = response.data || {}
+    const cases = Array.isArray(payload.items) ? payload.items : []
     planCases.value = cases
     executionRows.value = buildExecutionRows(cases)
-    casePage.value = 1
-    const uniquePaths = new Set(groupPathOptions.value)
+    totalCaseCount.value = Number(payload.total) || 0
+    if (payload.page) casePage.value = Number(payload.page) || casePage.value
+    if (payload.page_size) casePageSize.value = Number(payload.page_size) || casePageSize.value
+    const treeOptions = buildGroupTreeOptions(payload.group_tree)
+    if (treeOptions.length) {
+      groupPathTreeOptions.value = treeOptions
+    } else {
+      const uniquePaths = new Set()
+      cases.forEach((item) => {
+        if (item.group_path) uniquePaths.add(item.group_path)
+      })
+      groupPathTreeOptions.value = buildGroupPathTree(Array.from(uniquePaths))
+    }
     const uniquePriorities = new Map(priorityOptions.value.map((option) => [option.value, option.label]))
     cases.forEach((item) => {
-      if (item.group_path) uniquePaths.add(item.group_path)
       if (item.priority) {
         const priorityValue = String(item.priority)
         const label = TEST_CASE_PRIORITY_LABEL_MAP[priorityValue] || priorityValue
         uniquePriorities.set(priorityValue, label)
       }
     })
-    groupPathOptions.value = Array.from(uniquePaths).sort()
     priorityOptions.value = Array.from(uniquePriorities, ([value, label]) => ({ value, label }))
   } catch (error) {
     console.error('获取计划用例失败:', error)
@@ -741,7 +841,7 @@ const handleSearch = () => {
 }
 
 const resetFilters = () => {
-  caseFilters.group_path = ''
+  caseFilters.group_path = null
   caseFilters.priority = ''
   caseFilters.device_model_id = ''
   caseFilters.status = ''
@@ -768,21 +868,57 @@ const handleResultSaved = async () => {
 
 const handleCasePageChange = (page) => {
   casePage.value = page
+  fetchPlanCases()
 }
 
 const handleCasePageSizeChange = (size) => {
   casePageSize.value = size
   casePage.value = 1
+  fetchPlanCases()
 }
 
-const exportPlanCases = () => {
-  if (exportLoading.value) return
-  if (!executionRows.value.length) {
-    ElMessage.warning('暂无可导出的用例记录')
-    return
+const fetchAllPlanCases = async () => {
+  if (!planId.value) return []
+  const baseParams = {
+    group_path: caseFilters.group_path,
+    priority: caseFilters.priority,
+    device_model_id: caseFilters.device_model_id,
+    status: caseFilters.status
   }
+  if (caseFilters.keyword) {
+    baseParams.keyword = caseFilters.keyword
+  }
+  const pageSize = 100
+  let page = 1
+  let total = 0
+  let allCases = []
+  while (true) {
+    const response = await testPlansApi.getCases(planId.value, {
+      ...baseParams,
+      page,
+      page_size: pageSize
+    })
+    if (!response?.success) return null
+    const payload = response.data || {}
+    const items = Array.isArray(payload.items) ? payload.items : []
+    total = Number(payload.total) || 0
+    allCases = allCases.concat(items)
+    if (allCases.length >= total || items.length === 0) break
+    page += 1
+  }
+  return allCases
+}
+
+const exportPlanCases = async () => {
+  if (exportLoading.value) return
   exportLoading.value = true
   try {
+    const allCases = await fetchAllPlanCases()
+    if (!allCases || !allCases.length) {
+      ElMessage.warning('暂无可导出的用例记录')
+      return
+    }
+    const rowsForExport = buildExecutionRows(allCases)
     const headers = [
       '用例标题',
       '优先级',
@@ -798,7 +934,7 @@ const exportPlanCases = () => {
       '计划工时'
     ]
 
-    const rows = executionRows.value.map((row) => {
+    const rows = rowsForExport.map((row) => {
       const caseInfo = row.caseInfo || {}
       return [
         row.case_title || caseInfo.title || `用例#${row.case_id || row.plan_case_id || ''}`,
@@ -836,6 +972,7 @@ watch(
     if (!Number.isNaN(numericId)) {
       planId.value = numericId
       caseFilters.device_model_id = ''
+      casePage.value = 1
       fetchDetail()
       fetchPlanCases()
     }
