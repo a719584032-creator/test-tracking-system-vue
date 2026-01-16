@@ -197,99 +197,25 @@
 
       <div class="case-selection">
         <div class="case-selector">
-          <el-tabs v-model="caseTab" stretch>
-            <el-tab-pane label="按分组选择" name="groups">
-              <div class="case-selector-tip">
-                选中分组后将自动包含该分组下的全部用例。
-              </div>
-              <el-tree
-                v-loading="optionsLoading.caseGroups"
-                :data="caseGroupTree"
-                :props="treeProps"
-                node-key="id"
-                show-checkbox
-                :default-checked-keys="checkedGroupIds"
-                highlight-current
-                :expand-on-click-node="false"
-                class="group-tree"
-                @check="handleGroupCheck"
-              >
-                <template #default="{ node }">
-                  <span class="tree-node-label" :title="node.label">{{ node.label }}</span>
-                </template>
-              </el-tree>
-            </el-tab-pane>
-            <el-tab-pane label="按用例选择" name="cases">
-              <el-form :inline="true" class="case-search-form" @submit.prevent>
-                <el-form-item label="所属分组">
-                  <el-select
-                    v-model="caseTable.group_id"
-                    placeholder="全部分组"
-                    clearable
-                    filterable
-                    :disabled="!formData.department_id"
-                    style="width: 200px"
-                  >
-                    <el-option
-                      v-for="group in flatGroupOptions"
-                      :key="group.value"
-                      :label="group.label"
-                      :value="group.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="关键字">
-                  <el-input
-                    v-model="caseTable.keyword"
-                    placeholder="按标题搜索"
-                    clearable
-                    style="width: 220px"
-                    @keyup.enter="handleCaseSearch"
-                  />
-                </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" :disabled="!formData.department_id" @click="handleCaseSearch">
-                    搜索
-                  </el-button>
-                  <el-button @click="resetCaseFilters">重置</el-button>
-                </el-form-item>
-              </el-form>
-
-              <el-table
-                ref="caseTableRef"
-                :data="caseTable.list"
-                v-loading="optionsLoading.caseTable"
-                border
-                style="width: 100%"
-                height="360px"
-                :row-key="row => row.id"
-                @selection-change="handleTableSelectionChange"
-              >
-                <el-table-column type="selection" width="52" />
-                <el-table-column prop="title" label="用例标题" min-width="220" show-overflow-tooltip />
-                <el-table-column prop="priority" label="优先级" width="100" align="center" />
-                <el-table-column prop="status" label="状态" width="100" align="center">
-                  <template #default="{ row }">
-                    <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-                      {{ row.status === 'active' ? '有效' : '废弃' }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-              </el-table>
-
-              <div class="pagination-wrapper">
-                <el-pagination
-                  v-model:current-page="caseTable.page"
-                  v-model:page-size="caseTable.pageSize"
-                  :total="caseTable.total"
-                  :page-sizes="[10, 20, 50]"
-                  layout="total, sizes, prev, pager, next, jumper"
-                  @current-change="handleCasePageChange"
-                  @size-change="handleCasePageSizeChange"
-                />
-              </div>
-            </el-tab-pane>
-          </el-tabs>
+          <div class="case-selector-tip">
+            选中分组后将自动包含该分组下的全部用例。
+          </div>
+          <el-tree
+            v-loading="optionsLoading.caseGroups"
+            :data="caseGroupTree"
+            :props="treeProps"
+            node-key="id"
+            show-checkbox
+            :default-checked-keys="checkedGroupIds"
+            highlight-current
+            :expand-on-click-node="false"
+            class="group-tree"
+            @check="handleGroupCheck"
+          >
+            <template #default="{ node }">
+              <span class="tree-node-label" :title="node.label">{{ node.label }}</span>
+            </template>
+          </el-tree>
         </div>
 
         <div class="selected-case-panel">
@@ -302,8 +228,8 @@
             </template>
 
             <el-table
-              :data="selectedCases"
-              height="420px"
+              :data="paginatedSelectedCases"
+              height="360px"
               empty-text="请从左侧选择用例"
               border
               :row-key="row => row.id"
@@ -329,7 +255,6 @@
                     >
                       {{ groupName }}
                     </el-tag>
-                    <el-tag v-if="row.manual" size="small" type="success">单独选择</el-tag>
                   </div>
                 </template>
               </el-table-column>
@@ -357,6 +282,18 @@
                 </template>
               </el-table-column>
             </el-table>
+
+            <div class="pagination-wrapper">
+              <el-pagination
+                v-model:current-page="selectedCasePagination.page"
+                v-model:page-size="selectedCasePagination.pageSize"
+                :total="selectedCaseTotal"
+                :page-sizes="[10, 20, 50]"
+                layout="total, sizes, prev, pager, next, jumper"
+                @current-change="handleSelectedCasePageChange"
+                @size-change="handleSelectedCasePageSizeChange"
+              />
+            </div>
           </el-card>
         </div>
       </div>
@@ -407,9 +344,6 @@ const buildDefaultDockNineGrid = (useDefaults = false) =>
 const visible = ref(false)
 const submitting = ref(false)
 const formRef = ref()
-const caseTableRef = ref()
-const caseTab = ref('groups')
-
 const formData = reactive({
   department_id: null,
   project_id: null,
@@ -465,26 +399,19 @@ const optionsLoading = reactive({
   projects: false,
   testers: false,
   deviceModels: false,
-  caseGroups: false,
-  caseTable: false
+  caseGroups: false
 })
 
 const caseGroupTree = ref([])
 const checkedGroupIds = ref([])
 const groupNameMap = reactive(new Map())
 const groupCaseMap = reactive(new Map())
+const groupParentMap = reactive(new Map())
 
 const selectedCasesMap = reactive(new Map())
-const manualSelection = ref(new Set())
-const syncingSelection = ref(false)
-
-const caseTable = reactive({
-  list: [],
+const selectedCasePagination = reactive({
   page: 1,
-  pageSize: 10,
-  total: 0,
-  keyword: '',
-  group_id: null
+  pageSize: 10
 })
 
 const treeProps = {
@@ -493,20 +420,10 @@ const treeProps = {
 }
 
 const selectedCases = computed(() => Array.from(selectedCasesMap.values()))
-
-const flatGroupOptions = computed(() => {
-  const result = []
-  const walk = (nodes = []) => {
-    nodes.forEach((node) => {
-      if (!node || !node.id) return
-      result.push({ value: Number(node.id), label: node.label || node.name || `分组#${node.id}` })
-      if (Array.isArray(node.children) && node.children.length) {
-        walk(node.children)
-      }
-    })
-  }
-  walk(caseGroupTree.value)
-  return result
+const selectedCaseTotal = computed(() => selectedCases.value.length)
+const paginatedSelectedCases = computed(() => {
+  const start = (selectedCasePagination.page - 1) * selectedCasePagination.pageSize
+  return selectedCases.value.slice(start, start + selectedCasePagination.pageSize)
 })
 
 const resolveCaseTitle = (entry) => entry.caseInfo?.title || entry.caseInfo?.name || `用例 #${entry.id}`
@@ -543,20 +460,13 @@ const resetState = () => {
   checkedGroupIds.value = []
   groupNameMap.clear()
   groupCaseMap.clear()
+  groupParentMap.clear()
   selectedCasesMap.clear()
-  manualSelection.value = new Set()
-  caseTab.value = 'groups'
+  selectedCasePagination.page = 1
+  selectedCasePagination.pageSize = 10
   Object.keys(compatibilityLoading).forEach((key) => {
     delete compatibilityLoading[key]
   })
-
-  caseTable.list = []
-  caseTable.page = 1
-  caseTable.pageSize = 10
-  caseTable.total = 0
-  caseTable.keyword = ''
-  caseTable.group_id = null
-  syncingSelection.value = false
 }
 
 const syncDateRange = (value) => {
@@ -656,11 +566,13 @@ const processGroupTree = (nodes = []) =>
 
 const rebuildGroupMap = (nodes = []) => {
   groupNameMap.clear()
-  const walk = (list) => {
+  groupParentMap.clear()
+  const walk = (list, parentId = null) => {
     list.forEach((item) => {
       groupNameMap.set(item.id, item.label)
+      groupParentMap.set(item.id, parentId)
       if (Array.isArray(item.children) && item.children.length) {
-        walk(item.children)
+        walk(item.children, item.id)
       }
     })
   }
@@ -686,7 +598,7 @@ const fetchCaseGroups = async (departmentId) => {
   }
 }
 
-const addCaseToSelection = (caseItem, { manual = false, groupId } = {}) => {
+const addCaseToSelection = (caseItem, { groupId } = {}) => {
   if (!caseItem || caseItem.id === undefined || caseItem.id === null) return
   const id = Number(caseItem.id)
   let entry = selectedCasesMap.get(id)
@@ -695,7 +607,6 @@ const addCaseToSelection = (caseItem, { manual = false, groupId } = {}) => {
       id,
       caseInfo: { ...caseItem },
       groupIds: new Set(),
-      manual: false,
       compatibility_testing: caseItem.compatibility_testing ?? true
     }
     selectedCasesMap.set(id, entry)
@@ -705,7 +616,6 @@ const addCaseToSelection = (caseItem, { manual = false, groupId } = {}) => {
       entry.compatibility_testing = caseItem.compatibility_testing
     }
   }
-  if (manual) entry.manual = true
   if (groupId) entry.groupIds.add(Number(groupId))
 }
 
@@ -713,9 +623,33 @@ const removeGroupFromCase = (caseId, groupId) => {
   const entry = selectedCasesMap.get(caseId)
   if (!entry) return
   entry.groupIds.delete(Number(groupId))
-  if (!entry.manual && entry.groupIds.size === 0) {
+  if (entry.groupIds.size === 0) {
     selectedCasesMap.delete(caseId)
   }
+}
+
+const fetchGroupCases = async (groupId) => {
+  const id = Number(groupId)
+  if (!formData.department_id || !id) return []
+  const pageSize = 1000
+  const items = []
+  let page = 1
+  let total = 0
+  while (true) {
+    const resp = await testCaseService.list(formData.department_id, {
+      group_id: id,
+      page,
+      page_size: pageSize
+    })
+    if (!resp.success) return null
+    const list = resp.data?.items || resp.data?.list || []
+    items.push(...list)
+    total = Number(resp.data?.total || total)
+    if (total && page * pageSize >= total) break
+    if (!list.length || list.length < pageSize) break
+    page += 1
+  }
+  return items
 }
 
 const addGroupCases = async (groupId) => {
@@ -723,13 +657,8 @@ const addGroupCases = async (groupId) => {
   if (!formData.department_id || !id) return
   let groupEntry = groupCaseMap.get(id)
   if (!groupEntry) {
-    const resp = await testCaseService.list(formData.department_id, {
-      group_id: id,
-      page: 1,
-      page_size: 1000
-    })
-    if (!resp.success) return
-    const items = resp.data?.items || resp.data?.list || []
+    const items = await fetchGroupCases(id)
+    if (!items) return
     groupEntry = {
       caseIds: new Set(),
       cases: new Map()
@@ -761,10 +690,30 @@ const removeGroupCases = (groupId) => {
   })
 }
 
+const resolveEffectiveGroupKeys = (keys = []) => {
+  if (!groupParentMap.size) return keys
+  const checkedSet = new Set(keys.map((key) => Number(key)))
+  const result = []
+  checkedSet.forEach((id) => {
+    let parentId = groupParentMap.get(id)
+    let hasAncestor = false
+    while (parentId !== null && parentId !== undefined) {
+      if (checkedSet.has(parentId)) {
+        hasAncestor = true
+        break
+      }
+      parentId = groupParentMap.get(parentId)
+    }
+    if (!hasAncestor) result.push(id)
+  })
+  return result
+}
+
 const handleGroupCheck = async (_data, { checkedKeys }) => {
   const keys = Array.isArray(checkedKeys) ? checkedKeys.map((key) => Number(key)) : []
+  const effectiveKeys = resolveEffectiveGroupKeys(keys)
   const oldSet = new Set(checkedGroupIds.value.map((key) => Number(key)))
-  const newSet = new Set(keys)
+  const newSet = new Set(effectiveKeys)
   const added = [...newSet].filter((key) => !oldSet.has(key))
   const removed = [...oldSet].filter((key) => !newSet.has(key))
   checkedGroupIds.value = [...newSet]
@@ -774,116 +723,13 @@ const handleGroupCheck = async (_data, { checkedKeys }) => {
   removed.forEach((key) => removeGroupCases(key))
 }
 
-const removeManualSelection = (caseId) => {
-  const id = Number(caseId)
-  const entry = selectedCasesMap.get(id)
-  if (!entry) return
-  entry.manual = false
-  if (entry.groupIds.size === 0) {
-    selectedCasesMap.delete(id)
-  }
+const handleSelectedCasePageChange = (page) => {
+  selectedCasePagination.page = page
 }
 
-const handleTableSelectionChange = (rows) => {
-  if (syncingSelection.value || optionsLoading.caseTable) return
-
-  const selectedIds = new Set()
-  rows.forEach((row) => {
-    const id = Number(row.id)
-    if (!id) return
-    selectedIds.add(id)
-    addCaseToSelection(row, { manual: true })
-  })
-
-  const currentPageIds = new Set(
-    caseTable.list
-      .map((item) => Number(item.id))
-      .filter((id) => !!id)
-  )
-
-  const nextManual = new Set(manualSelection.value)
-
-  currentPageIds.forEach((id) => {
-    if (!selectedIds.has(id) && nextManual.has(id)) {
-      removeManualSelection(id)
-      nextManual.delete(id)
-    }
-  })
-
-  selectedIds.forEach((id) => {
-    nextManual.add(id)
-  })
-
-  manualSelection.value = nextManual
-}
-
-const syncTableSelection = () => {
-  nextTick(() => {
-    if (!caseTableRef.value) return
-    syncingSelection.value = true
-    caseTableRef.value.clearSelection()
-    nextTick(() => {
-      const selectedIds = manualSelection.value
-      caseTable.list.forEach((row) => {
-        const id = Number(row.id)
-        if (selectedIds.has(id)) {
-          caseTableRef.value.toggleRowSelection(row, true)
-        }
-      })
-      nextTick(() => {
-        syncingSelection.value = false
-      })
-    })
-  })
-}
-
-const fetchCaseTable = async () => {
-  if (!formData.department_id) {
-    caseTable.list = []
-    caseTable.total = 0
-    return
-  }
-  optionsLoading.caseTable = true
-  try {
-    const params = {
-      page: caseTable.page,
-      page_size: caseTable.pageSize
-    }
-    if (caseTable.keyword) params.title = caseTable.keyword
-    if (caseTable.group_id) params.group_id = caseTable.group_id
-    const resp = await testCaseService.list(formData.department_id, params)
-    if (resp.success) {
-      const items = resp.data?.items || resp.data?.list || []
-      caseTable.list = items
-      caseTable.total = Number(resp.data?.total || items.length || 0)
-      syncTableSelection()
-    }
-  } finally {
-    optionsLoading.caseTable = false
-  }
-}
-
-const handleCaseSearch = () => {
-  caseTable.page = 1
-  fetchCaseTable()
-}
-
-const resetCaseFilters = () => {
-  caseTable.keyword = ''
-  caseTable.group_id = null
-  caseTable.page = 1
-  fetchCaseTable()
-}
-
-const handleCasePageChange = (page) => {
-  caseTable.page = page
-  fetchCaseTable()
-}
-
-const handleCasePageSizeChange = (size) => {
-  caseTable.pageSize = size
-  caseTable.page = 1
-  fetchCaseTable()
+const handleSelectedCasePageSizeChange = (size) => {
+  selectedCasePagination.pageSize = size
+  selectedCasePagination.page = 1
 }
 
 const onDepartmentChange = async (departmentId) => {
@@ -895,11 +741,8 @@ const onDepartmentChange = async (departmentId) => {
   checkedGroupIds.value = []
   groupCaseMap.clear()
   selectedCasesMap.clear()
-  manualSelection.value = new Set()
-  caseTable.page = 1
-  caseTable.keyword = ''
-  caseTable.group_id = null
   deviceOptions.value = []
+  selectedCasePagination.page = 1
 
   await Promise.all([
     fetchProjectsByDepartment(deptId),
@@ -907,24 +750,13 @@ const onDepartmentChange = async (departmentId) => {
     fetchCaseGroups(deptId),
     fetchDeviceModelsByDepartment(deptId)
   ])
-  await fetchCaseTable()
-  syncTableSelection()
 }
 
 const removeCase = (caseId) => {
   const id = Number(caseId)
   const entry = selectedCasesMap.get(id)
   if (!entry) return
-  if (entry.groupIds.size > 0) {
-    ElMessage.warning('该用例来源于分组，请先取消对应分组的勾选')
-    return
-  }
   selectedCasesMap.delete(id)
-  if (manualSelection.value.has(id)) {
-    manualSelection.value.delete(id)
-    manualSelection.value = new Set(manualSelection.value)
-    syncTableSelection()
-  }
   delete compatibilityLoading[id]
 }
 
@@ -979,7 +811,6 @@ const handleSubmit = () => {
         start_date: formData.start_date,
         end_date: formData.end_date,
         case_ids: caseIds,
-        case_group_ids: checkedGroupIds.value,
         device_model_ids: formData.device_model_ids,
         tester_user_ids: formData.tester_user_ids,
         dock_nine_gird: buildDockNineGridPayload()
@@ -1015,8 +846,6 @@ const open = async ({ departmentId, projectId } = {}) => {
         formData.project_id = targetId
       }
     }
-  } else {
-    await fetchCaseTable()
   }
 }
 
@@ -1028,6 +857,21 @@ watch(
   () => formData.dateRange,
   (value) => {
     syncDateRange(value)
+  }
+)
+
+watch(
+  () => selectedCaseTotal.value,
+  () => {
+    const total = selectedCaseTotal.value
+    if (!total) {
+      selectedCasePagination.page = 1
+      return
+    }
+    const maxPage = Math.max(1, Math.ceil(total / selectedCasePagination.pageSize))
+    if (selectedCasePagination.page > maxPage) {
+      selectedCasePagination.page = maxPage
+    }
   }
 )
 
@@ -1084,10 +928,6 @@ defineExpose({ open, close })
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.case-search-form {
-  margin-bottom: 12px;
 }
 
 .pagination-wrapper {

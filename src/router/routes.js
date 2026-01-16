@@ -22,6 +22,12 @@ export const routes = [
         meta: { title: '测试计划', requiresAuth: true }
       },
       {
+        path: 'test-plans/create',
+        name: 'TestPlanCreate',
+        component: () => import('../pages/TestPlans/TestPlanCreatePage.vue'),
+        meta: { title: '新建测试计划', requiresAuth: true }
+      },
+      {
         path: 'test-plans/:id',
         name: 'TestPlanDetail',
         component: () => import('../pages/TestPlans/TestPlanDetailPage.vue'),

@@ -163,6 +163,7 @@ const getBreadcrumbTitle = () => {
   const routeMap = {
     '/dashboard': '首页',
     '/test-plans': '测试计划',
+    '/test-plans/create': '新建测试计划',
     '/projects': '项目管理',
     '/device-models': '机型管理',
     '/users': '用户管理',

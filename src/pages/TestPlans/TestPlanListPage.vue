@@ -81,7 +81,7 @@
           </el-form-item>
         </el-form>
 
-        <el-button type="primary" class="create-plan-btn" @click="openCreateDrawer">
+        <el-button type="primary" class="create-plan-btn" @click="goCreatePage">
           新建测试计划
         </el-button>
       </div>
@@ -206,10 +206,6 @@
       :status-options="statusOptions"
       @success="refreshList"
     />
-    <TestPlanCreateDrawer
-      ref="createDrawerRef"
-      @success="handleCreateSuccess"
-    />
   </div>
 </template>
 
@@ -221,7 +217,6 @@ import { testPlansApi } from '@/api/testPlans'
 import { projectsApi } from '@/api/projects'
 import { departmentService } from '@/api/departments'
 import TestPlanEditDialog from '@/components/TestPlans/TestPlanEditDialog.vue'
-import TestPlanCreateDrawer from '@/components/TestPlans/TestPlanCreateDrawer.vue'
 import { formatDateTime } from '@/utils/format'
 import {
   TEST_PLAN_STATUS_OPTIONS,
@@ -257,7 +252,6 @@ const optionsLoading = reactive({
 const statusOptions = TEST_PLAN_STATUS_OPTIONS
 
 const editDialogRef = ref()
-const createDrawerRef = ref()
 
 const formatDate = (value) => {
   if (!value) return ''
@@ -392,18 +386,14 @@ const refreshList = () => {
   fetchPlans()
 }
 
-const openCreateDrawer = async () => {
-  if (!departmentOptions.value.length) {
-    await fetchDepartments()
-  }
-  createDrawerRef.value?.open({
-    departmentId: filters.department_id,
-    projectId: filters.project_id
+const goCreatePage = () => {
+  router.push({
+    name: 'TestPlanCreate',
+    query: {
+      department_id: filters.department_id || undefined,
+      project_id: filters.project_id || undefined
+    }
   })
-}
-
-const handleCreateSuccess = () => {
-  fetchPlans()
 }
 
 const resolveStatusTag = (status) => TEST_PLAN_STATUS_TAG_MAP[status] || 'info'
