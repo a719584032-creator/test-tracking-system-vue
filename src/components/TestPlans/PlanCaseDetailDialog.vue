@@ -129,6 +129,7 @@
                             :src="resolveAttachmentUrl(file)"
                             fit="cover"
                             lazy
+                            :preview-teleported="true"
                             :preview-src-list="collectImagePreviewList(execution.attachments)"
                             :initial-index="resolveImagePreviewIndex(execution.attachments, file)"
                           >
@@ -207,6 +208,7 @@
                                     :src="resolveAttachmentUrl(file)"
                                     fit="cover"
                                     lazy
+                                    :preview-teleported="true"
                                     :preview-src-list="collectImagePreviewList(log.attachments)"
                                     :initial-index="resolveImagePreviewIndex(log.attachments, file)"
                                   >

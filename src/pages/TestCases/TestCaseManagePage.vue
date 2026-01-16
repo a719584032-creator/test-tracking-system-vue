@@ -42,6 +42,33 @@
         <div class="table-header">
           <h3 class="table-title">用例列表</h3>
           <div class="table-actions">
+            <el-dropdown
+              trigger="click"
+              @command="handleExportCommand"
+            >
+              <el-button
+                type="primary"
+                plain
+                class="export-btn"
+                :loading="exportLoading"
+                :disabled="!departmentId"
+              >
+                <el-icon><Download /></el-icon>
+                导出用例
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="all">导出全部</el-dropdown-item>
+                  <el-dropdown-item
+                    command="group"
+                    :disabled="!filters.group_id"
+                  >
+                    导出当前分组
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-button
               type="primary"
               link
@@ -245,7 +272,9 @@ import {
   Refresh,
   Search,
   RefreshLeft,
-  UploadFilled
+  UploadFilled,
+  Download,
+  ArrowDown
 } from '@element-plus/icons-vue'
 
 import CaseGroupTree from './components/CaseGroupTree.vue'
@@ -273,6 +302,7 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const compatibilityLoading = ref({})
+const exportLoading = ref(false)
 
 const filters = ref({
   title: '',
@@ -405,6 +435,90 @@ const handleDelete = async (row) => {
 
 const handleHistory = (row) => {
   historyRef.value?.open(row.id)
+}
+
+const resolveExportFilename = (headers, fallbackName) => {
+  const disposition = headers?.['content-disposition'] || headers?.['Content-Disposition']
+  if (!disposition) return fallbackName
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1])
+  }
+  const asciiMatch = disposition.match(/filename="?([^\";]+)"?/i)
+  if (asciiMatch?.[1]) return asciiMatch[1]
+  return fallbackName
+}
+
+const buildExportParams = (includeGroup) => {
+  const kw = parseKeywords(filters.value.keywords)
+  const params = {
+    title: filters.value.title,
+    status: filters.value.status,
+    priority: filters.value.priority,
+    case_type: filters.value.case_type,
+    keywords: kw.length ? kw : undefined
+  }
+  if (includeGroup) {
+    params.group_id = filters.value.group_id
+  }
+  return params
+}
+
+const triggerDownload = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+const handleExport = async (includeGroup) => {
+  if (!departmentId.value) {
+    ElMessage.error('请先选择部门')
+    return
+  }
+  if (includeGroup && !filters.value.group_id) {
+    ElMessage.warning('请先选择分组')
+    return
+  }
+  exportLoading.value = true
+  try {
+    const params = buildExportParams(includeGroup)
+    const response = await testCaseService.exportCases(departmentId.value, params)
+    if (response?.success === false) {
+      ElMessage.error(response.message || '导出失败')
+      return
+    }
+    const blob = response?.data instanceof Blob ? response.data : new Blob([response?.data || ''])
+    if (blob.type && blob.type.includes('application/json')) {
+      const text = await blob.text()
+      try {
+        const parsed = JSON.parse(text)
+        ElMessage.error(parsed?.message || '导出失败')
+      } catch {
+        ElMessage.error('导出失败')
+      }
+      return
+    }
+    const fallbackName = `test_cases_department_${departmentId.value}.csv`
+    const filename = resolveExportFilename(response?.headers, fallbackName)
+    triggerDownload(blob, filename)
+  } catch {
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+const handleExportCommand = (command) => {
+  if (command === 'group') {
+    handleExport(true)
+  } else {
+    handleExport(false)
+  }
 }
 
 // 导入相关

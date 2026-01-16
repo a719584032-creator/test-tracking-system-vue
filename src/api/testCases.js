@@ -73,6 +73,27 @@ function getTestCaseHistory(caseId, params = {}) {
   return http.get(`/api/test-cases/${caseId}/history`, { params })
 }
 
+// 导出用例 GET /api/test-cases/department/:department_id/export
+function exportTestCases(departmentId, params = {}) {
+  const searchParams = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === '' || value === null || value === undefined) return
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item === '' || item === null || item === undefined) return
+        searchParams.append(key, item)
+      })
+      return
+    }
+    searchParams.append(key, value)
+  })
+  const query = searchParams.toString()
+  const url = query
+    ? `/api/test-cases/department/${departmentId}/export?${query}`
+    : `/api/test-cases/department/${departmentId}/export`
+  return http.get(url, { responseType: 'blob', timeout: 60000 })
+}
+
 // ========== Service 层 ==========
 export const testCaseService = {
   /**
@@ -135,7 +156,15 @@ export const testCaseService = {
     const params = {}
     if (limit !== undefined && limit !== null) params.limit = limit
     return handleRequest(getTestCaseHistory, [caseId, params], '获取用例历史失败')
-  } 
+  },
+
+  /** 导出用例 */
+  exportCases: (departmentId, params = {}) => {
+    if (!departmentId) {
+      return Promise.resolve({ success: false, message: '部门ID不能为空', data: null })
+    }
+    return exportTestCases(departmentId, params)
+  }
 }
 
 export default testCaseService

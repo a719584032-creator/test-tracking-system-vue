@@ -681,6 +681,11 @@ const sanitizeFilename = (value) => String(value || '')
   .trim()
   .slice(0, 80) || '测试计划'
 
+const normalizeResultValue = (value) => {
+  if (value === null || value === undefined) return ''
+  return String(value).trim().toLowerCase()
+}
+
 const goBack = () => {
   router.back()
 }
@@ -709,8 +714,10 @@ const fetchDetail = async () => {
   }
 }
 
-const buildExecutionRows = (cases) => {
+const buildExecutionRows = (cases, statusFilter = '') => {
   if (!cases?.length) return []
+  const normalizedStatus = normalizeResultValue(statusFilter)
+  const shouldFilterStatus = Boolean(normalizedStatus)
   const rows = []
   cases.forEach((caseItem) => {
     const executions = Array.isArray(caseItem.execution_results) ? caseItem.execution_results : []
@@ -730,6 +737,12 @@ const buildExecutionRows = (cases) => {
       workload_minutes: caseItem.workload_minutes
     }
     if (!executions.length) {
+      if (
+        shouldFilterStatus &&
+        normalizeResultValue(caseItem.latest_result) !== normalizedStatus
+      ) {
+        return
+      }
       rows.push({
         case_id: caseItem.case_id,
         case_title: caseItem.title,
@@ -754,7 +767,11 @@ const buildExecutionRows = (cases) => {
       })
       return
     }
-    executions.forEach((exec) => {
+    const filteredExecutions = shouldFilterStatus
+      ? executions.filter((exec) => normalizeResultValue(exec.result) === normalizedStatus)
+      : executions
+    if (!filteredExecutions.length) return
+    filteredExecutions.forEach((exec) => {
       rows.push({
         case_id: caseItem.case_id,
         case_title: caseItem.title,
@@ -805,7 +822,7 @@ const fetchPlanCases = async () => {
     const payload = response.data || {}
     const cases = Array.isArray(payload.items) ? payload.items : []
     planCases.value = cases
-    executionRows.value = buildExecutionRows(cases)
+    executionRows.value = buildExecutionRows(cases, caseFilters.status)
     totalCaseCount.value = Number(payload.total) || 0
     if (payload.page) casePage.value = Number(payload.page) || casePage.value
     if (payload.page_size) casePageSize.value = Number(payload.page_size) || casePageSize.value
@@ -918,7 +935,7 @@ const exportPlanCases = async () => {
       ElMessage.warning('暂无可导出的用例记录')
       return
     }
-    const rowsForExport = buildExecutionRows(allCases)
+    const rowsForExport = buildExecutionRows(allCases, caseFilters.status)
     const headers = [
       '用例标题',
       '优先级',
