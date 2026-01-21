@@ -3,6 +3,9 @@
     <div class="page-header">
       <el-page-header content="测试计划详情" @back="goBack" />
       <div class="header-right">
+        <el-button type="primary" @click="openDisplayCaseDialog">
+          创建 DisplayCase
+        </el-button>
         <el-button
           type="primary"
           plain
@@ -339,6 +342,11 @@
       :plan-id="planId"
       :device-options="deviceOptions"
     />
+    <DisplayCaseDialog
+      ref="displayCaseDialogRef"
+      :plan-id="planId"
+      @success="handleDisplayCaseCreated"
+    />
   </div>
 </template>
 
@@ -361,6 +369,7 @@ import { formatDateTime } from '@/utils/format'
 import { featureFlags } from '@/config'
 import TestPlanResultDialog from '@/components/TestPlans/TestPlanResultDialog.vue'
 import PlanCaseDetailDialog from '@/components/TestPlans/PlanCaseDetailDialog.vue'
+import DisplayCaseDialog from '@/components/TestPlans/DisplayCaseDialog.vue'
 
 const dockNineGridTemplate = [
   { key: 'HotPlug', payloadKey: 'hotplug', label: 'HotPlug' },
@@ -413,6 +422,7 @@ const exportLoading = ref(false)
 
 const resultDialogRef = ref()
 const caseDetailDialogRef = ref()
+const displayCaseDialogRef = ref()
 
 const enableResultRecording = featureFlags.enableResultRecording !== false
 
@@ -878,7 +888,16 @@ const openCaseDetail = (row) => {
   caseDetailDialogRef.value?.open(planCaseId, deviceModelId)
 }
 
+const openDisplayCaseDialog = () => {
+  displayCaseDialogRef.value?.open()
+}
+
 const handleResultSaved = async () => {
+  await fetchDetail()
+  await fetchPlanCases()
+}
+
+const handleDisplayCaseCreated = async () => {
   await fetchDetail()
   await fetchPlanCases()
 }

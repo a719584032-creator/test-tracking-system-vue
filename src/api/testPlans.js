@@ -40,6 +40,8 @@ const createTestPlan = (payload) => http.post(BASE_URL, payload)
 const updateTestPlan = (planId, payload) => http.put(`${BASE_URL}/${planId}`, payload)
 const deleteTestPlan = (planId) => http.delete(`${BASE_URL}/${planId}`)
 const recordPlanResult = (planId, payload) => http.post(`${BASE_URL}/${planId}/results`, payload)
+const createDisplayMatrixCasesRequest = (planId, payload) =>
+  http.post(`${BASE_URL}/${planId}/display-matrix-cases`, payload)
 
 export const testPlansApi = {
   list(params = {}) {
@@ -93,6 +95,15 @@ export const testPlansApi = {
 
   recordResult(planId, payload) {
     return handleRequest(recordPlanResult, [planId, payload], '记录测试结果失败')
+  },
+
+  createDisplayMatrixCases(planId, cases = []) {
+    const body = { cases: Array.isArray(cases) ? cases : [] }
+    return handleRequest(
+      createDisplayMatrixCasesRequest,
+      [planId, body],
+      '创建 DisplayCase 用例失败'
+    )
   }
 }
 
